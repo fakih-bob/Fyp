@@ -19,59 +19,89 @@ use App\Http\Controllers\OrganizationController;
 |
 */
 
+// 🔐 Authentication
+// Logs in a user and returns an auth token
+Route::post('/login', [AuthController::class, 'login']);
 
- Route::post('/login', [AuthController::class, 'login']);
+// Registers a new user and returns an auth token
 Route::post('/register', [AuthController::class, 'register']);
 
+
+// 🏢 Organization Management (Requires Auth)
 Route::middleware('auth:sanctum')->group(function () {
+    // Creates a new organization
     Route::post('/organizations', [OrganizationController::class, 'store']);
+
+    // Updates an existing organization by ID
     Route::put('/organizations/{id}', [OrganizationController::class, 'update']);
+
+    // Deletes an organization by ID
     Route::delete('/organizations/{id}', [OrganizationController::class, 'destroy']);
 });
 
 
-//owner apis
-
+// 👥 Organization Owner APIs (Requires Auth)
 Route::middleware('auth:sanctum')->group(function () {
+    // Retrieves join requests for a specific organization
     Route::get('/getRequestsForOrganization/{id}', [OrganizationUserRequestController::class, 'getRequestsForOrganization']);
-    Route::get('/getUsersOfOrganization/{id}', [OrganizationUserRequestController::class, 'getUsersOfOrganization']);
-    Route::put('/acceptRequest/{id}', [OrganizationUserRequestController::class, 'acceptRequest']);
-    Route::put('/declineRequest/{id}', [OrganizationUserRequestController::class, 'declineRequest']);
-    //department Management
-    Route::post('/departments', [departmentController::class, 'CreateDepartment']);
-    Route::put('/UpdateDepartmentName/{id}', [departmentController::class, 'UpdateDepartmentName']);
-    Route::delete('/DeleteDepartment/{id}', [departmentController::class, 'DeleteDepartment']);
-    //Assign Admins to departments
-    Route::put('/AssignAdmins', [OrganizationUserRequestController::class, 'AssignAdmins']);
-    Route::put('/RemoveAdmins', [OrganizationUserRequestController::class, 'RemoveAdmins']);
 
+    // Retrieves users of a specific organization
+    Route::get('/getUsersOfOrganization/{id}', [OrganizationUserRequestController::class, 'getUsersOfOrganization']);
+
+    // Accepts a user's join request
+    Route::put('/acceptRequest/{id}', [OrganizationUserRequestController::class, 'acceptRequest']);
+
+    // Declines a user's join request
+    Route::put('/declineRequest/{id}', [OrganizationUserRequestController::class, 'declineRequest']);
+
+    // 🗂️ Department Management
+    // Creates a new department
+    Route::post('/departments', [departmentController::class, 'CreateDepartment']);
+
+    // Updates a department's name
+    Route::put('/UpdateDepartmentName/{id}', [departmentController::class, 'UpdateDepartmentName']);
+
+    // Deletes a department
+    Route::delete('/DeleteDepartment/{id}', [departmentController::class, 'DeleteDepartment']);
+
+    // Assigns admin roles to users in departments
+    Route::put('/AssignAdmins', [OrganizationUserRequestController::class, 'AssignAdmins']);
+
+    // Removes admin roles from users in departments
+    Route::put('/RemoveAdmins', [OrganizationUserRequestController::class, 'RemoveAdmins']);
 });
 
 
-//user apis
-
+// 🙋‍♂️ User APIs (Requires Auth)
 Route::middleware('auth:sanctum')->group(function () {
+    // Sends a request to join an organization
     Route::post('/MakeRequestToOrganization', [OrganizationUserRequestController::class, 'MakeRequestToOrganization']);
+
+    // Shows all requests sent by the logged-in user
     Route::get('/ShowAllMyRequests', [OrganizationUserRequestController::class, 'ShowAllMyRequests']);
+
+    // Cancels a specific request sent by the user
     Route::delete('/CancelMyRequest/{id}', [OrganizationUserRequestController::class, 'CancelMyRequest']);
 });
 
 
-// Store a new maintenance request with optional photo uploads
+// 🔧 Maintenance Request APIs
+
+// Stores a new maintenance request (with optional photo uploads) - Requires Auth
 Route::middleware('auth:sanctum')->post('/maintenance-requests', [MaintenanceRequestController::class, 'store']);
 
-// Fetch all maintenance requests where status == 'new'
+// Fetches all maintenance requests where status is 'new'
 Route::get('/maintenance-requests', [MaintenanceRequestController::class, 'FetchAllRequests']);
 
-// Fetch all users who are part of the maintenance team
+// Fetches all users who are part of the maintenance team
 Route::get('/maintenance-team', [MaintenanceRequestController::class, 'FetchAllMaintenanceTeam']);
 
-// Assign a maintenance request to a maintenance team member
+// Assigns a maintenance request to a team member
 Route::post('/maintenance-requests/{id}/assign', [MaintenanceRequestController::class, 'assignTo']);
 
-// Assign a user to a department 
+// 🧑‍💼 Department Assignment
+// Assigns a user to a department
 Route::post('/assign-user-department', [departmentController::class, 'assignUserToDepartment']);
 
-// change the status of the maintenance request 
+// Changes the status of a maintenance request (e.g., from 'new' to 'in_progress' or 'dones')
 Route::patch('/maintenance-requests/{id}/status', [MaintenanceRequestController::class, 'updateStatus']);
-
