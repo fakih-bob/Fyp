@@ -54,11 +54,32 @@ public function store(Request $request)
         'data' => $maintenanceRequest->load('photos'),
     ], 201);
 }    
-    public function FetchAllRequests()
+public function FetchAllRequests()
 {
-    $requests = MaintenanceRequest::with(['user', 'department', 'assignee', 'photos'])
-                ->where('status', 'new')
-                ->get();
+    $user = Auth::user();
+
+    $query = MaintenanceRequest::with(['user', 'department', 'assignee', 'photos']);
+
+    // USER: see only own requests
+    if ($user->role === 'User') {
+        $query->where('user_id', $user->id);
+    }
+
+    // DEPARTMENT ADMIN: see only requests for their department
+    elseif ($user->role === 'Department Admin') {
+        $query->whereHas('department', function ($q) use ($user) {
+            $q->where('admin_id', $user->id);
+        });
+    }
+
+    // MAINTENANCE: see only assigned tasks
+    elseif ($user->role === 'Maintenance') {
+        $query->where('assigned_to', $user->id);
+    }
+
+    // Else: superusers/organization admins can be expanded later
+
+    $requests = $query->get();
 
     return response()->json([
         'data' => $requests
