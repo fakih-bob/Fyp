@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\departmentController;
 use App\Http\Controllers\OrganizationUserRequestController;
 use App\Http\Controllers\MaintenanceRequestController;
+use App\Http\Controllers\UserProfileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\OrganizationController;
@@ -26,11 +27,19 @@ Route::post('/login', [AuthController::class, 'login']);
 // Registers a new user and returns an auth token
 Route::post('/register', [AuthController::class, 'register']);
 
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/profile', [UserProfileController::class, 'show']);
+    Route::put('/profile', [UserProfileController::class, 'update']);
+    Route::delete('/profile', [UserProfileController::class, 'destroy']);
+});
+
 
 // 🏢 Organization Management (Requires Auth)
 Route::middleware('auth:sanctum')->group(function () {
     // Creates a new organization
     Route::post('/organizations', [OrganizationController::class, 'store']);
+
+    Route::get('/myorganizations', [OrganizationController::class, 'getMyOrganization']);
 
     // Updates an existing organization by ID
     Route::put('/organizations/{id}', [OrganizationController::class, 'update']);
@@ -58,11 +67,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Creates a new department
     Route::post('/departments', [departmentController::class, 'CreateDepartment']);
 
+    Route::get('/departments/{id}', [departmentController::class, 'getDepartmentsByOrganization']);
     // Updates a department's name
-    Route::put('/UpdateDepartmentName/{id}', [departmentController::class, 'UpdateDepartmentName']);
+    Route::put('/departments/{id}', [departmentController::class, 'UpdateDepartmentName']);
 
     // Deletes a department
-    Route::delete('/DeleteDepartment/{id}', [departmentController::class, 'DeleteDepartment']);
+    Route::delete('/departments/{id}', [departmentController::class, 'DeleteDepartment']);
 
     // Assigns admin roles to users in departments
     Route::put('/AssignAdmins', [OrganizationUserRequestController::class, 'AssignAdmins']);
@@ -76,6 +86,7 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     // Sends a request to join an organization
     Route::post('/MakeRequestToOrganization', [OrganizationUserRequestController::class, 'MakeRequestToOrganization']);
+Route::get('/getAllOrganizations', [OrganizationController::class, 'getAllOrganizations']);
 
     // Shows all requests sent by the logged-in user
     Route::get('/ShowAllMyRequests', [OrganizationUserRequestController::class, 'ShowAllMyRequests']);

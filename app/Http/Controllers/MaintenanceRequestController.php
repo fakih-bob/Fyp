@@ -54,10 +54,21 @@ public function store(Request $request)
         'data' => $maintenanceRequest->load('photos'),
     ], 201);
 }    
-    public function FetchAllRequests()
+ public function FetchAllRequests()
 {
+    $admin = Auth::user();
+
+    $department = Department::where('admin_id', $admin->id)->first();
+
+    if (!$department) {
+        return response()->json([
+            'message' => 'No department assigned to this admin.'
+        ], 404);
+    }
+
     $requests = MaintenanceRequest::with(['user', 'department', 'assignee', 'photos'])
                 ->where('status', 'new')
+                ->where('department_id', $department->id)
                 ->get();
 
     return response()->json([
