@@ -45,6 +45,15 @@ class OrganizationController extends Controller
     ], 200);
 }
 
+public function getAllOrganizations()
+    {
+        $organizations = Organization::all();
+
+        return response()->json([
+            'status' => 'success',
+            'organizations' => $organizations,
+        ], 200);
+    }
 
     public function update(Request $request, $id)
     {
@@ -90,7 +99,24 @@ class OrganizationController extends Controller
        return response()->json(['message' => 'Organization Deleted successfuly'], 200);
     }
 
+public function getMyOrganization()
+{
+    $user = Auth::user();
 
+    if (!$user || $user->role !== 'owner') {
+        return response()->json(['error' => 'Unauthorized or not an owner'], 403);
+    }
+
+    $organization = Organization::where('owner_id', $user->id)->get();
+
+    if (!$organization) {
+        return response()->json(['message' => 'Organization not found'], 404);
+    }
+
+    return response()->json([
+        'organization' => $organization
+    ], 200);
+}
 
 
     

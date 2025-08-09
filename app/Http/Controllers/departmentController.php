@@ -90,7 +90,20 @@ public function assignUserToDepartment(Request $request)
     ]);
 }
 
+public function getDepartmentsByOrganization($organizationId)
+    {
+        
+        if (!is_numeric($organizationId)) {
+            return response()->json(['error' => 'Invalid organization ID'], 400);
+        }
 
+       
+        $departments = Department::where('organization_id', $organizationId)->get();
+
+        return response()->json([
+            'departments' => $departments
+        ], 200);
+    }
 
 
 }
