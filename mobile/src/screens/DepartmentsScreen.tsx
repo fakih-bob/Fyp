@@ -24,6 +24,7 @@ type Department = {
   name: string;
   description?: string;
   organization_id: number;
+  admin_id?: number | null;
 };
 
 type RootStackParamList = {
@@ -41,8 +42,14 @@ type RootStackParamList = {
   };
 };
 
-type DepartmentsListRouteProp = RouteProp<RootStackParamList, 'DepartmentsListScreen'>;
-type DepartmentsListNavigationProp = NavigationProp<RootStackParamList, 'DepartmentsListScreen'>;
+type DepartmentsListRouteProp = RouteProp<
+  RootStackParamList,
+  'DepartmentsListScreen'
+>;
+type DepartmentsListNavigationProp = NavigationProp<
+  RootStackParamList,
+  'DepartmentsListScreen'
+>;
 
 export default function DepartmentsListScreen() {
   const route = useRoute<DepartmentsListRouteProp>();
@@ -51,7 +58,9 @@ export default function DepartmentsListScreen() {
   const { organizationId } = route.params;
 
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [filteredDepartments, setFilteredDepartments] = useState<Department[]>([]);
+  const [filteredDepartments, setFilteredDepartments] = useState<Department[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const isFocused = useIsFocused();
@@ -92,10 +101,14 @@ export default function DepartmentsListScreen() {
   };
 
   const confirmDelete = (id: number) => {
-    Alert.alert('Delete Department', 'Are you sure you want to delete this department?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', onPress: () => deleteDepartment(id), style: 'destructive' },
-    ]);
+    Alert.alert(
+      'Delete Department',
+      'Are you sure you want to delete this department?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', onPress: () => deleteDepartment(id), style: 'destructive' },
+      ]
+    );
   };
 
   const deleteDepartment = async (id: number) => {
@@ -111,6 +124,44 @@ export default function DepartmentsListScreen() {
     }
   };
 
+  const assignAdmin = async (departmentId: number, userId: number) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await axios.put(
+        'http://10.0.2.2:8000/api/AssignAdmins',
+        { department_id: departmentId, user_id: userId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      Alert.alert('Success', 'Admin assigned successfully');
+      fetchDepartments();
+    } catch (error: any) {
+      console.error('Assign admin error:', error.response?.data || error);
+      Alert.alert(
+        'Error',
+        error.response?.data?.error || 'Failed to assign admin'
+      );
+    }
+  };
+
+  const removeAdmin = async (departmentId: number, userId: number) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await axios.put(
+        'http://10.0.2.2:8000/api/RemoveAdmins',
+        { department_id: departmentId, user_id: userId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      Alert.alert('Success', 'Admin removed successfully');
+      fetchDepartments();
+    } catch (error: any) {
+      console.error('Remove admin error:', error.response?.data || error);
+      Alert.alert(
+        'Error',
+        error.response?.data?.error || 'Failed to remove admin'
+      );
+    }
+  };
+
   const renderItem = ({ item }: { item: Department }) => (
     <Card style={styles.card} elevation={3}>
       <Card.Content>
@@ -118,6 +169,9 @@ export default function DepartmentsListScreen() {
         {item.description ? (
           <Text style={styles.description}>{item.description}</Text>
         ) : null}
+        <Text style={styles.adminInfo}>
+          Admin ID: {item.admin_id ? item.admin_id : 'No admin assigned'}
+        </Text>
       </Card.Content>
       <Card.Actions style={styles.cardActions}>
         <Button
@@ -143,7 +197,6 @@ export default function DepartmentsListScreen() {
         >
           Delete
         </Button>
-        {/* New Button to Assign User */}
         <Button
           mode="outlined"
           onPress={() =>
@@ -155,6 +208,19 @@ export default function DepartmentsListScreen() {
           style={styles.assignButton}
         >
           Assign Users
+        </Button>
+        <Button
+          mode="contained"
+          buttonColor="#ff9800"
+          onPress={() => {
+            if (item.admin_id) {
+              removeAdmin(item.id, item.admin_id);
+            } else {
+              Alert.alert('Error', 'No admin to remove');
+            }
+          }}
+        >
+          Remove Admin
         </Button>
       </Card.Actions>
     </Card>
@@ -233,6 +299,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 14,
     color: '#666',
+  },
+  adminInfo: {
+    marginTop: 4,
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: '#444',
   },
   cardActions: {
     justifyContent: 'space-between',

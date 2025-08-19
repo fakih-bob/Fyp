@@ -124,16 +124,20 @@ class OrganizationUserRequestController extends Controller
         return response()->json(['message' => 'Request declined.']);
     }
 
-    public function getUsersOfOrganization($organizationId){
-       $users = OrganizationUserRequest::where('organization_id', $organizationId)
+    public function getUsersOfOrganization($organizationId)
+{
+    $users = OrganizationUserRequest::where('organization_id', $organizationId)
         ->where('status', 'approved')
+        ->whereHas('user', function ($query) {
+            $query->where('role', 'user');
+        })
         ->with('user')
         ->orderBy('created_at', 'desc')
         ->get();
 
     return response()->json($users);
+}
 
-    }
 
    public function AssignAdmins(Request $request, $departmentId = null, $userId = null)
 {

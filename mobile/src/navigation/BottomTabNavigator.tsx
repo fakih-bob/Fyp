@@ -11,8 +11,8 @@ import NotificationsScreen from '../../src/screens/NotificationsScreen';
 import ProfileScreen from '../../src/screens/ProfileScreen';
 import OwnerOrganizationsScreen from '../../src/screens/OwnerDashboard';
 import OrganizationRequestsScreen from '../../src/screens/JoinOrganizationRequest'
-
-
+import DeptAdminDashboard from '../../src/screens/DeptAdminDashboard'
+import MyAssignedRequestsScreen from'../../src/screens/MaintenanceDashboard'
 export type BottomTabParamList = {
   Home: undefined;
   MyRequests: undefined;
@@ -20,6 +20,7 @@ export type BottomTabParamList = {
   Profile: undefined;
   Ownerdashboard:undefined;
   OrganizationRequestsScreen:undefined;
+
 };
 
 const Tab = createBottomTabNavigator<BottomTabParamList>();
@@ -118,7 +119,7 @@ export default function BottomTabNavigator() {
       {/* Tabs for dept_admin */}
       {role === 'dept_admin' && (
         <>
-          <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'DeptAdmin Dashboard', tabBarLabel: 'Home' }} />
+          <Tab.Screen name="Home" component={DeptAdminDashboard} options={{ title: 'DeptAdmin Dashboard', tabBarLabel: 'Home' }} />
           <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications', tabBarLabel: 'Notifications' }} />
           <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile', tabBarLabel: 'Profile' }} />
         </>
@@ -126,7 +127,7 @@ export default function BottomTabNavigator() {
 
       {/* Tabs for maintenance */}
       {role === 'maintenance' && (
-        <>
+        <><Tab.Screen name="Home" component={MyAssignedRequestsScreen} options={{ title: 'Maintenance Dashboard', tabBarLabel: 'Home' }} />
           <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications', tabBarLabel: 'Notifications' }} />
           <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile', tabBarLabel: 'Profile' }} />
         </>

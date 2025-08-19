@@ -102,17 +102,23 @@ Route::get('/getAllOrganizations', [OrganizationController::class, 'getAllOrgani
 Route::middleware('auth:sanctum')->post('/maintenance-requests', [MaintenanceRequestController::class, 'store']);
 
 // Fetches all maintenance requests where status is 'new'
-Route::get('/maintenance-requests', [MaintenanceRequestController::class, 'FetchAllRequests']);
+Route::middleware('auth:sanctum')->get('/maintenance-requests', [MaintenanceRequestController::class, 'FetchAllRequests']);
 
 // Fetches all users who are part of the maintenance team
-Route::get('/maintenance-team', [MaintenanceRequestController::class, 'FetchAllMaintenanceTeam']);
+Route::middleware('auth:sanctum')->get('/maintenance-team/{id}', [MaintenanceRequestController::class, 'FetchAllMaintenanceTeam']);
 
 // Assigns a maintenance request to a team member
-Route::post('/maintenance-requests/{id}/assign', [MaintenanceRequestController::class, 'assignTo']);
+Route::middleware('auth:sanctum')->post('/maintenance-requests/{id}/assign', [MaintenanceRequestController::class, 'assignTo']);
 
+Route::middleware('auth:sanctum')->post('/users/{id}/assign-maintenance', [MaintenanceRequestController::class, 'assignToMaintenance']);
 // 🧑‍💼 Department Assignment
 // Assigns a user to a department
-Route::post('/assign-user-department', [departmentController::class, 'assignUserToDepartment']);
+Route::middleware('auth:sanctum')->post('/assign-user-department', [departmentController::class, 'assignUserToDepartment']);
 
 // Changes the status of a maintenance request (e.g., from 'new' to 'in_progress' or 'dones')
-Route::patch('/maintenance-requests/{id}/status', [MaintenanceRequestController::class, 'updateStatus']);
+Route::middleware('auth:sanctum')->patch('/maintenance-requests/{id}/status', [MaintenanceRequestController::class, 'updateStatus']);
+
+Route::middleware('auth:sanctum')->get(
+    '/my-assigned-requests',
+    [MaintenanceRequestController::class, 'myAssignedRequests']
+);

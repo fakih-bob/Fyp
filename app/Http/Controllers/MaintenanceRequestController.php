@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Department;
 use App\Models\DepartmentUser;
 use App\Models\MaintenanceRequest;
 use App\Models\Photo;
@@ -54,18 +55,28 @@ public function store(Request $request)
         'data' => $maintenanceRequest->load('photos'),
     ], 201);
 }    
- public function FetchAllRequests()
+public function FetchAllRequests()
 {
+    // Get the currently authenticated user (admin)
     $admin = Auth::user();
 
+    if (!$admin) {
+        return response()->json([
+            'message' => 'Unauthorized.'
+        ], 401);
+    }
+
+    // Find the department where this admin is assigned
     $department = Department::where('admin_id', $admin->id)->first();
 
+    // If no department is assigned, return a clear error
     if (!$department) {
         return response()->json([
             'message' => 'No department assigned to this admin.'
         ], 404);
     }
 
+    // Safely fetch maintenance requests for this department
     $requests = MaintenanceRequest::with(['user', 'department', 'assignee', 'photos'])
                 ->where('status', 'new')
                 ->where('department_id', $department->id)
@@ -73,17 +84,41 @@ public function store(Request $request)
 
     return response()->json([
         'data' => $requests
+    ], 200);
+}
+
+public function FetchAllMaintenanceTeam($departmentId)
+{
+    $requests = User::where('role', 'maintenance')
+        ->whereHas('departments', function ($query) use ($departmentId) {
+            $query->where('departments.id', $departmentId);
+        })
+        ->get();
+
+    return response()->json([
+        'data' => $requests
     ]);
 }
 
-    public function FetchAllMaintenanceTeam()
+
+
+ public function assignToMaintenance(Request $request, $userId)
     {
-        $requests = User::where('role', 'Maintenance')->get();
+        $validated = $request->validate([
+            'department_id' => 'required|exists:departments,id',
+        ]);
+
+        $user = User::findOrFail($userId);
+        $user->role = 'maintenance';
+        $user->departments()->syncWithoutDetaching([$request->department_id]);
+        $user->save();
 
         return response()->json([
-            'data' => $requests
-        ]);
+            'message' => 'User assigned to maintenance successfully.',
+            'user' => $user
+        ], 200);
     }
+
 
 public function assignTo(Request $request, $request_id)
 {
@@ -99,6 +134,24 @@ public function assignTo(Request $request, $request_id)
     return response()->json([
         'message' => 'Request assigned successfully.',
         'data' => $maintenanceRequest->load(['assignee'])
+    ]);
+}
+
+
+
+
+public function myAssignedRequests(Request $request)
+{
+    $userId = $request->user()->id;
+
+    $requests = MaintenanceRequest::with(['user', 'department'])
+        ->where('assigned_to', $userId)
+        ->orderByDesc('created_at')
+        ->get();
+
+    return response()->json([
+        'message' => 'Assigned maintenance requests fetched successfully.',
+        'data'    => $requests,
     ]);
 }
 

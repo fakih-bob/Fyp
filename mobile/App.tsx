@@ -11,22 +11,27 @@ import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import OrganizationForm from './src/screens/OrganizationForm';
 import DepartmentFormScreen from './src/screens/DepartmentForm';
-import DepartmentsListScreen from './src/screens/DepartmentsScreen'
-import OrganizationRequestsScreen from './src/screens/JoinOrganizationRequest'
-import AssignUserToDepartmentScreen from './src/screens/AssignUserToDept'
+import DepartmentsListScreen from './src/screens/DepartmentsScreen';
+import OrganizationRequestsScreen from './src/screens/JoinOrganizationRequest';
+import AssignUserToDepartmentScreen from './src/screens/AssignUserToDept';
+import AssignMaintenanceScreen from './src/screens/AssignMaitenanceScreen';
+import MyAssignedRequestsScreen from './src/screens/MaintenanceDashboard';  // make sure file name matches
 import { theme } from './src/theme/theme';
 
-// Define your stack param list (inline or in a types file)
+// Keep your stack param list here (as you wanted)
 type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   HomeScreen: undefined;
-  OrganizationForm:undefined;
-  ownerdashboard:undefined;
-  DepartmentForm:undefined;
-  DepartmentsListScreen:undefined;
-  OrganizationRequestsScreen:undefined;
-  AssignUserToDepartmentScreen:undefined;
+  OrganizationForm: undefined;
+  ownerdashboard: undefined;
+  DepartmentForm: undefined;
+  DepartmentsListScreen: undefined;
+  OrganizationRequestsScreen: undefined;
+  AssignUserToDepartmentScreen: undefined;
+  MaintenanceDashboard: undefined;
+  DeptAdminDashboard: undefined; // this mounts your tab navigator
+  AssignMaintenance: { requestId: number; departmentId?: number };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -41,10 +46,23 @@ export default function App() {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="OrganizationForm" component={OrganizationForm} />
-             <Stack.Screen name="DepartmentForm" component={DepartmentFormScreen} />
-             <Stack.Screen name="OrganizationRequestsScreen" component={OrganizationRequestsScreen} />
-             <Stack.Screen name="AssignUserToDepartmentScreen" component={AssignUserToDepartmentScreen} />
-             <Stack.Screen name="DepartmentsListScreen" component={DepartmentsListScreen} />
+            <Stack.Screen name="DepartmentForm" component={DepartmentFormScreen} />
+            <Stack.Screen name="OrganizationRequestsScreen" component={OrganizationRequestsScreen} />
+            <Stack.Screen name="AssignUserToDepartmentScreen" component={AssignUserToDepartmentScreen} />
+            <Stack.Screen name="DepartmentsListScreen" component={DepartmentsListScreen} />
+
+            {/* Your tab navigator is mounted under this stack route */}
+            <Stack.Screen name="DeptAdminDashboard" component={BottomTabNavigator} />
+             <Stack.Screen name="MaintenanceDashboard" component={BottomTabNavigator} />
+
+            {/* Push-to Assign screen */}
+            <Stack.Screen
+              name="AssignMaintenance"
+              component={AssignMaintenanceScreen}
+              options={{ headerShown: true, title: 'Assign Maintenance' }}
+            />
+
+            {/* If you need these mapped to BottomTabNavigator too */}
             <Stack.Screen name="ownerdashboard" component={BottomTabNavigator} />
             <Stack.Screen name="HomeScreen" component={BottomTabNavigator} />
           </Stack.Navigator>

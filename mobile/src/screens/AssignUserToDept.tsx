@@ -26,7 +26,10 @@ type RootStackParamList = {
   };
 };
 
-type AssignUserRouteProp = RouteProp<RootStackParamList, 'AssignUserToDepartmentScreen'>;
+type AssignUserRouteProp = RouteProp<
+  RootStackParamList,
+  'AssignUserToDepartmentScreen'
+>;
 
 type User = {
   id: number;
@@ -43,6 +46,8 @@ export default function AssignUserToDepartmentScreen() {
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [processingUserId, setProcessingUserId] = useState<number | null>(null);
+  const [processingAdminId, setProcessingAdminId] = useState<number | null>(null);
+  const [processingMaintenanceId, setProcessingMaintenanceId] = useState<number | null>(null);
 
   const [dialogVisible, setDialogVisible] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
@@ -64,7 +69,8 @@ export default function AssignUserToDepartmentScreen() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setUsers(response.data || []);
-    } catch (error) {
+    } catch (error: any) {
+      console.log('Fetch users error:', error.response?.data || error.message);
       Alert.alert('Error', 'Failed to load users');
     } finally {
       setLoadingUsers(false);
@@ -89,48 +95,131 @@ export default function AssignUserToDepartmentScreen() {
     setProcessingUserId(selectedUserId);
     try {
       const token = await AsyncStorage.getItem('token');
-      await axios.post(
+      const response = await axios.post(
         'http://10.0.2.2:8000/api/assign-user-department',
+        { user_id: selectedUserId, department_id: departmentId },
         {
-          user_id: selectedUserId,
-          department_id: departmentId,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
       );
+      console.log('Assign response:', response.data);
       Alert.alert('Success', 'User assigned to department');
       closeDialog();
-    } catch (error) {
+      fetchUsers();
+    } catch (error: any) {
+      console.log('Assign error:', error.response?.data || error.message);
       Alert.alert('Error', 'Failed to assign user to department');
     } finally {
       setProcessingUserId(null);
     }
   };
 
-  const renderUser = ({ item }: { item: any }) => {
-  const user = item.user;  // extract user info from the nested 'user' key
-  return (
-    <Card style={styles.card} key={user.id}>
-      <Card.Content>
-        <Text variant="titleMedium">{user.name}</Text>
-        <Text>Email: {user.email}</Text>
-        {user.phone_number && <Text>Phone: {user.phone_number}</Text>}
-        {user.role && <Text>Role: {user.role}</Text>}
-      </Card.Content>
-      <Card.Actions style={styles.actions}>
-        <Button
-          mode="contained"
-          onPress={() => openAssignDialog(user.id)}
-          disabled={processingUserId === user.id}
-          loading={processingUserId === user.id}
-        >
-          Assign to Department
-        </Button>
-      </Card.Actions>
-    </Card>
-  );
-};
+  const toggleAdminRole = async (userId: number, isAdmin: boolean) => {
+    setProcessingAdminId(userId);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const endpoint = isAdmin
+        ? 'http://10.0.2.2:8000/api/RemoveAdmins'
+        : 'http://10.0.2.2:8000/api/AssignAdmins';
 
-  
+      const payload = {
+        user_id: userId,
+        department_id: departmentId,
+      };
+
+      const response = await axios.put(endpoint, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('Admin toggle response:', response.data);
+      Alert.alert('Success', isAdmin ? 'Admin removed' : 'User promoted to admin');
+
+      fetchUsers();
+    } catch (error: any) {
+      console.log('Admin toggle error:', error.response?.data || error.message);
+      Alert.alert('Error', 'Failed to update admin status');
+    } finally {
+      setProcessingAdminId(null);
+    }
+  };
+
+  const assignAsMaintenance = async (userId: number) => {
+    setProcessingMaintenanceId(userId);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const response = await axios.post(
+        `http://10.0.2.2:8000/api/users/${userId}/assign-maintenance`,
+        { department_id: departmentId },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      console.log('Maintenance assign response:', response.data);
+      Alert.alert('Success', 'User assigned as Maintenance');
+      fetchUsers();
+    } catch (error: any) {
+      console.log('Maintenance assign error:', error.response?.data || error.message);
+      Alert.alert('Error', 'Failed to assign as maintenance');
+    } finally {
+      setProcessingMaintenanceId(null);
+    }
+  };
+
+  const renderUser = ({ item }: { item: any }) => {
+    const user = item.user; // If your backend returns `user` nested. If not, just use item directly.
+    const isAdmin = ['admin', 'dept_admin'].includes(user.role?.toLowerCase());
+
+    return (
+      <Card style={styles.card} key={user.id}>
+        <Card.Content>
+          <Text variant="titleMedium">{user.name}</Text>
+          <Text>Email: {user.email}</Text>
+          {user.phone_number && <Text>Phone: {user.phone_number}</Text>}
+          {user.role && <Text>Role: {user.role}</Text>}
+        </Card.Content>
+        <Card.Actions style={styles.actions}>
+          <Button
+            mode="contained"
+            onPress={() => openAssignDialog(user.id)}
+            disabled={processingUserId === user.id}
+            loading={processingUserId === user.id}
+            style={{ marginRight: 8 }}
+          >
+            Assign to Department
+          </Button>
+
+          <Button
+            mode={isAdmin ? 'outlined' : 'contained'}
+            onPress={() => toggleAdminRole(user.id, isAdmin)}
+            disabled={processingAdminId === user.id}
+            loading={processingAdminId === user.id}
+            style={{ marginRight: 8 }}
+          >
+            {isAdmin ? 'Remove Admin' : 'Make Admin'}
+          </Button>
+
+          <Button
+            mode="contained"
+            onPress={() => assignAsMaintenance(user.id)}
+            disabled={processingMaintenanceId === user.id}
+            loading={processingMaintenanceId === user.id}
+          >
+            Assign as Maintenance
+          </Button>
+        </Card.Actions>
+      </Card>
+    );
+  };
 
   return (
     <KeyboardAvoidingView
