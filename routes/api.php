@@ -122,3 +122,9 @@ Route::middleware('auth:sanctum')->get(
     '/my-assigned-requests',
     [MaintenanceRequestController::class, 'myAssignedRequests']
 );
+
+// Get user's own maintenance requests (that they created)
+Route::middleware('auth:sanctum')->get(
+    '/my-maintenance-requests',
+    [MaintenanceRequestController::class, 'myMaintenanceRequests']
+);

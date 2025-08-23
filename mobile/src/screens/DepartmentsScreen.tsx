@@ -85,7 +85,7 @@ export default function DepartmentsListScreen() {
     try {
       const token = await AsyncStorage.getItem('token');
       const response = await axios.get(
-        `http://10.0.2.2:8000/api/departments/${organizationId}`,
+        `http://192.168.1.102:8000/api/departments/${organizationId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -114,7 +114,7 @@ export default function DepartmentsListScreen() {
   const deleteDepartment = async (id: number) => {
     try {
       const token = await AsyncStorage.getItem('token');
-      await axios.delete(`http://10.0.2.2:8000/api/departments/${id}`, {
+      await axios.delete(`http://192.168.1.102:8000/api/departments/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       fetchDepartments();
@@ -128,7 +128,7 @@ export default function DepartmentsListScreen() {
     try {
       const token = await AsyncStorage.getItem('token');
       await axios.put(
-        'http://10.0.2.2:8000/api/AssignAdmins',
+        'http://192.168.1.102:8000/api/AssignAdmins',
         { department_id: departmentId, user_id: userId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -147,7 +147,7 @@ export default function DepartmentsListScreen() {
     try {
       const token = await AsyncStorage.getItem('token');
       await axios.put(
-        'http://10.0.2.2:8000/api/RemoveAdmins',
+        'http://192.168.1.102:8000/api/RemoveAdmins',
         { department_id: departmentId, user_id: userId },
         { headers: { Authorization: `Bearer ${token}` } }
       );

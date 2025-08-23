@@ -93,7 +93,7 @@ const RegisterScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await axios.post('http://10.0.2.2:8000/api/register', {
+      const res = await axios.post('http://192.168.1.102:8000/api/register', {
         name: name.trim(),
         email: email.trim(),
         password,

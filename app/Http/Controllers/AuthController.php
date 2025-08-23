@@ -42,20 +42,22 @@ class AuthController extends Controller
         'phone_number' => 'nullable|string|max:20'
     ]);
 
-    $user = new User();
-    $user->name = $validated['name'];
-    $user->email = $validated['email'];
-    $user->phone_number = $validated['phone_number'] ?? null;
-    $user->password = bcrypt($validated['password']);
-    $user->role = $validated['role'];
-    $user->save();
+    // Create user with validated role
+    $user = User::create([
+        'name' => $validated['name'],
+        'email' => $validated['email'],
+        'phone_number' => $validated['phone_number'] ?? null,
+        'password' => bcrypt($validated['password']),
+        'role' => $validated['role'], // Ensure role is properly set
+    ]);
 
     $token = $user->createToken("Authtoken")->plainTextToken;
 
     return response()->json([
         "status" => true,
+        "message" => "User registered successfully with role: " . $validated['role'],
         "token" => $token,
-        "data" => $user
+        "data" => $user->fresh() // Get fresh user data to ensure role is included
     ]);
 }
 

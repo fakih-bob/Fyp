@@ -38,7 +38,7 @@ export default function AssignMaintenanceScreen() {
       try {
         const token = await AsyncStorage.getItem('token');
         const res = await axios.get(
-          `http://10.0.2.2:8000/api/maintenance-team/${departmentId}`,
+          `http://192.168.1.102:8000/api/maintenance-team/${departmentId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -70,7 +70,7 @@ export default function AssignMaintenanceScreen() {
       const body = { user_id: Number(selectedMemberId) };
 
       const res = await axios.post(
-        `http://10.0.2.2:8000/api/maintenance-requests/${requestId}/assign`,
+        `http://192.168.1.102:8000/api/maintenance-requests/${requestId}/assign`,
         body,
         {
           headers: {

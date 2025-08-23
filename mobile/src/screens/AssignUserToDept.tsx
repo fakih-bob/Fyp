@@ -65,7 +65,7 @@ export default function AssignUserToDepartmentScreen() {
     try {
       const token = await AsyncStorage.getItem('token');
       const response = await axios.get(
-        `http://10.0.2.2:8000/api/getUsersOfOrganization/${organizationId}`,
+        `http://192.168.1.102:8000/api/getUsersOfOrganization/${organizationId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setUsers(response.data || []);
@@ -96,7 +96,7 @@ export default function AssignUserToDepartmentScreen() {
     try {
       const token = await AsyncStorage.getItem('token');
       const response = await axios.post(
-        'http://10.0.2.2:8000/api/assign-user-department',
+        'http://192.168.1.102:8000/api/assign-user-department',
         { user_id: selectedUserId, department_id: departmentId },
         {
           headers: {
@@ -122,8 +122,8 @@ export default function AssignUserToDepartmentScreen() {
     try {
       const token = await AsyncStorage.getItem('token');
       const endpoint = isAdmin
-        ? 'http://10.0.2.2:8000/api/RemoveAdmins'
-        : 'http://10.0.2.2:8000/api/AssignAdmins';
+        ? 'http://192.168.1.102:8000/api/RemoveAdmins'
+        : 'http://192.168.1.102:8000/api/AssignAdmins';
 
       const payload = {
         user_id: userId,
@@ -154,7 +154,7 @@ export default function AssignUserToDepartmentScreen() {
     try {
       const token = await AsyncStorage.getItem('token');
       const response = await axios.post(
-        `http://10.0.2.2:8000/api/users/${userId}/assign-maintenance`,
+        `http://192.168.1.102:8000/api/users/${userId}/assign-maintenance`,
         { department_id: departmentId },
         {
           headers: {

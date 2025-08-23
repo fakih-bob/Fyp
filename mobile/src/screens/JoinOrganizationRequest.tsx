@@ -52,7 +52,7 @@ export default function OrganizationRequestsScreen() {
     try {
       const token = await AsyncStorage.getItem('token');
       const response = await axios.get(
-        'http://10.0.2.2:8000/api/myorganizations', // Your API to fetch user's organizations
+        'http://192.168.1.102:8000/api/myorganizations', // Your API to fetch user's organizations
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setOrganizations(response.data.organization || []);
@@ -69,7 +69,7 @@ export default function OrganizationRequestsScreen() {
     try {
       const token = await AsyncStorage.getItem('token');
       const response = await axios.get(
-        `http://10.0.2.2:8000/api/getRequestsForOrganization/${orgId}`,
+        `http://192.168.1.102:8000/api/getRequestsForOrganization/${orgId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setRequests(response.data || []);
@@ -86,7 +86,7 @@ export default function OrganizationRequestsScreen() {
     try {
       const token = await AsyncStorage.getItem('token');
       await axios.put(
-        `http://10.0.2.2:8000/api/acceptRequest/${requestId}`,
+        `http://192.168.1.102:8000/api/acceptRequest/${requestId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -105,7 +105,7 @@ export default function OrganizationRequestsScreen() {
     try {
       const token = await AsyncStorage.getItem('token');
       await axios.put(
-        `http://10.0.2.2:8000/api/declineRequest/${requestId}`,
+        `http://192.168.1.102:8000/api/declineRequest/${requestId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );

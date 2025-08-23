@@ -33,7 +33,7 @@ type MaintenanceRequest = {
   photos?: { id: number; url: string }[];
 };
 
-const API_BASE = 'http://10.0.2.2:8000/api';
+const API_BASE = 'http://192.168.1.102:8000/api';
 const STATUS_OPTIONS = ['new', 'declined', 'pending', 'in-progress', 'done'] as const;
 type StatusType = typeof STATUS_OPTIONS[number];
 

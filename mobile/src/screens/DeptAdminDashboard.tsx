@@ -37,7 +37,7 @@ export default function DeptAdminDashboard() {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await axios.get('http://10.0.2.2:8000/api/maintenance-requests', {
+      const res = await axios.get('http://192.168.1.102:8000/api/maintenance-requests', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setRequests(res.data?.data || []);

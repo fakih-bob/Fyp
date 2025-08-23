@@ -73,7 +73,7 @@ export default function DepartmentFormScreen() {
         payload.organization_id = organizationId;  // <-- Add org ID here when creating
       }
 
-      let url = 'http://10.0.2.2:8000/api/departments';
+      let url = 'http://192.168.1.102:8000/api/departments';
       let method: 'post' | 'put' = 'post';
 
       if (mode === 'edit' && department) {

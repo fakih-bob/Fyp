@@ -16,6 +16,7 @@ import OrganizationRequestsScreen from './src/screens/JoinOrganizationRequest';
 import AssignUserToDepartmentScreen from './src/screens/AssignUserToDept';
 import AssignMaintenanceScreen from './src/screens/AssignMaitenanceScreen';
 import MyAssignedRequestsScreen from './src/screens/MaintenanceDashboard';  // make sure file name matches
+import CreateMaintenanceRequestScreen from './src/screens/CreateMaintenanceRequestScreen';
 import { theme } from './src/theme/theme';
 
 // Keep your stack param list here (as you wanted)
@@ -32,6 +33,7 @@ type RootStackParamList = {
   MaintenanceDashboard: undefined;
   DeptAdminDashboard: undefined; // this mounts your tab navigator
   AssignMaintenance: { requestId: number; departmentId?: number };
+  CreateMaintenanceRequest: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -60,6 +62,12 @@ export default function App() {
               name="AssignMaintenance"
               component={AssignMaintenanceScreen}
               options={{ headerShown: true, title: 'Assign Maintenance' }}
+            />
+
+            <Stack.Screen
+              name="CreateMaintenanceRequest"
+              component={CreateMaintenanceRequestScreen}
+              options={{ headerShown: true, title: 'New Maintenance Request' }}
             />
 
             {/* If you need these mapped to BottomTabNavigator too */}

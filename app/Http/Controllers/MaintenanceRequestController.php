@@ -170,4 +170,19 @@ public function updateStatus(Request $request, $id)
         'maintenance_request' => $maintenanceRequest,
     ]);
 }
+
+public function myMaintenanceRequests(Request $request)
+{
+    $userId = $request->user()->id;
+
+    $requests = MaintenanceRequest::with(['department', 'assignee', 'photos'])
+        ->where('user_id', $userId)
+        ->orderByDesc('created_at')
+        ->get();
+
+    return response()->json([
+        'message' => 'User maintenance requests fetched successfully.',
+        'data'    => $requests,
+    ]);
+}
 }
