@@ -85,7 +85,10 @@ export default function ProfileScreen() {
     console.log('ProfileScreen: useEffect called, isFocused:', isFocused);
     if (isFocused) {
       fetchProfile();
-      animateEntrance();
+      // Delay animation to ensure data is loaded
+      setTimeout(() => {
+        animateEntrance();
+      }, 100);
     }
   }, [isFocused]);
 
@@ -120,7 +123,7 @@ export default function ProfileScreen() {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await axios.get('http://192.168.1.102:8000/api/profile', {
+      const res = await axios.get('http://192.168.10.157:8000/api/profile', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -184,7 +187,7 @@ export default function ProfileScreen() {
       }
 
       await axios.put(
-        'http://192.168.1.102:8000/api/profile',
+        'http://192.168.10.157:8000/api/profile',
         updateData,
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -258,7 +261,7 @@ export default function ProfileScreen() {
             setDeleting(true);
             try {
               const token = await AsyncStorage.getItem('token');
-              await axios.delete('http://192.168.1.102:8000/api/profile', {
+              await axios.delete('http://192.168.10.157:8000/api/profile', {
                 headers: { Authorization: `Bearer ${token}` },
               });
 
@@ -378,7 +381,7 @@ export default function ProfileScreen() {
                         labelStyle={{ color: 'white', fontSize: 32, fontWeight: '700' }}
                       />
                       <TouchableOpacity style={styles.avatarEditButton}>
-                        <MaterialIcons name="camera-alt" size={16} color="white" />
+                        <MaterialIcons name="camera" size={16} color="white" />
                       </TouchableOpacity>
                     </View>
                     
@@ -511,7 +514,7 @@ export default function ProfileScreen() {
                       mode="outlined"
                       secureTextEntry
                       style={styles.input}
-                      left={<TextInput.Icon icon="lock-check" />}
+                      left={<TextInput.Icon icon="lock" />}
                       outlineColor={theme.colors.outline}
                       activeOutlineColor={theme.colors.warning}
                       error={password !== passwordConfirmation && passwordConfirmation.length > 0}

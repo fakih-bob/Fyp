@@ -72,7 +72,7 @@ const LoginScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await axios.post('http://192.168.1.102:8000/api/login', {
+      const res = await axios.post('http://192.168.10.157:8000/api/login', {
         email: email.trim(),
         password,
       });

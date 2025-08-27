@@ -17,6 +17,7 @@ import AssignUserToDepartmentScreen from './src/screens/AssignUserToDept';
 import AssignMaintenanceScreen from './src/screens/AssignMaitenanceScreen';
 import MyAssignedRequestsScreen from './src/screens/MaintenanceDashboard';  // make sure file name matches
 import CreateMaintenanceRequestScreen from './src/screens/CreateMaintenanceRequestScreen';
+import DepartmentDetailsScreen from './src/screens/DepartmentDetailsScreen';
 import { theme } from './src/theme/theme';
 
 // Keep your stack param list here (as you wanted)
@@ -28,6 +29,7 @@ type RootStackParamList = {
   ownerdashboard: undefined;
   DepartmentForm: undefined;
   DepartmentsListScreen: undefined;
+  DepartmentDetails: { departmentId: number; organizationId: number };
   OrganizationRequestsScreen: undefined;
   AssignUserToDepartmentScreen: undefined;
   MaintenanceDashboard: undefined;
@@ -68,6 +70,12 @@ export default function App() {
               name="CreateMaintenanceRequest"
               component={CreateMaintenanceRequestScreen}
               options={{ headerShown: true, title: 'New Maintenance Request' }}
+            />
+
+            <Stack.Screen
+              name="DepartmentDetails"
+              component={DepartmentDetailsScreen}
+              options={{ headerShown: false }}
             />
 
             {/* If you need these mapped to BottomTabNavigator too */}

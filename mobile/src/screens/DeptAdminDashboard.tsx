@@ -37,20 +37,48 @@ export default function DeptAdminDashboard() {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const res = await axios.get('http://192.168.1.102:8000/api/maintenance-requests', {
-        headers: { Authorization: `Bearer ${token}` },
+      
+      if (!token) {
+        Alert.alert('Error', 'Authentication token not found. Please login again.');
+        return;
+      }
+
+      const res = await axios.get('http://192.168.10.157:8000/api/maintenance-requests', {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
       });
-      setRequests(res.data?.data || []);
-    } catch (error) {
-      console.log(error);
-      Alert.alert('Error', 'Failed to fetch maintenance requests');
+      
+      const requestsData = res.data?.data || [];
+      setRequests(Array.isArray(requestsData) ? requestsData : []);
+    } catch (error: any) {
+      console.log('Fetch requests error:', error);
+      let errorMessage = 'Failed to fetch maintenance requests';
+      
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Request timeout. Please check your connection.';
+      } else if (!error.response) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'No department assigned to this admin.';
+      }
+      
+      Alert.alert('Error', errorMessage);
+      setRequests([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isFocused) fetchRequests(); // refresh on focus/return
+    if (isFocused) {
+      // Delay to ensure proper navigation completion
+      setTimeout(() => {
+        fetchRequests();
+      }, 100);
+    }
   }, [isFocused]);
 
   // Robust check for "already assigned" across multiple API shapes

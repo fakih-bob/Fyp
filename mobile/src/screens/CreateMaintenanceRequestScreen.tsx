@@ -92,7 +92,7 @@ const CreateMaintenanceRequestScreen: React.FC = () => {
       // Get user's departments - you may need to adjust this API endpoint
       // For now, I'll use a placeholder. You might need to create an endpoint that returns user's departments
       const response = await axios.get(
-        'http://192.168.1.102:8000/api/user/departments', // This endpoint may need to be created
+        'http://192.168.10.157:8000/api/user/departments', // This endpoint may need to be created
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -172,7 +172,7 @@ const CreateMaintenanceRequestScreen: React.FC = () => {
       });
 
       const response = await axios.post(
-        'http://192.168.1.102:8000/api/maintenance-requests',
+        'http://192.168.10.157:8000/api/maintenance-requests',
         formData,
         {
           headers: {
@@ -217,7 +217,7 @@ const CreateMaintenanceRequestScreen: React.FC = () => {
   if (departments.length === 0) {
     return (
       <View style={[styles.container, styles.center]}>
-        <MaterialIcons name="error-outline" size={64} color={theme.colors.error} />
+        <MaterialIcons name="error" size={64} color={theme.colors.error} />
         <Text style={styles.errorTitle}>No Departments Available</Text>
         <Text style={styles.errorText}>
           You need to be assigned to a department before creating maintenance requests.
@@ -293,7 +293,7 @@ const CreateMaintenanceRequestScreen: React.FC = () => {
                   mode="outlined"
                   style={styles.input}
                   placeholder="Brief description of the issue"
-                  left={<TextInput.Icon icon="text-short" />}
+                  left={<TextInput.Icon icon="edit" />}
                   outlineColor={theme.colors.outline}
                   activeOutlineColor={theme.colors.primary}
                 />
@@ -307,7 +307,7 @@ const CreateMaintenanceRequestScreen: React.FC = () => {
                   numberOfLines={4}
                   style={[styles.input, { height: 120 }]}
                   placeholder="Detailed description of the issue..."
-                  left={<TextInput.Icon icon="text-long" />}
+                  left={<TextInput.Icon icon="description" />}
                   outlineColor={theme.colors.outline}
                   activeOutlineColor={theme.colors.primary}
                 />

@@ -57,9 +57,9 @@ class User extends Authenticatable
         return $this->belongsTo(Organization::class);
     }
 
-    public function organizationOwner()
+    public function ownedOrganizations()
     {
-        return $this->hasOne(Organization::class, 'admin_id');
+        return $this->hasMany(Organization::class, 'owner_id');
     }
 
     public function departments()

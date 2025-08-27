@@ -124,8 +124,8 @@ const CustomHeader = React.memo(({ title, role }: { title: string; role: string 
     <LinearGradient
       colors={[getRoleColor(role), `${getRoleColor(role)}80`]}
       style={{
-        height: Platform.OS === 'ios' ? 100 : 80,
-        paddingTop: Platform.OS === 'ios' ? 50 : 30,
+        height: Platform.OS === 'ios' ? 90 : 70,
+        paddingTop: Platform.OS === 'ios' ? 45 : 25,
         paddingHorizontal: 20,
         flexDirection: 'row',
         alignItems: 'center',

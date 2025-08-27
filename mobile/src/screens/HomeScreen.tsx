@@ -51,6 +51,8 @@ type Organization = {
   url?: string;
   departments_count?: number;
   members_count?: number;
+  user_status?: 'not_member' | 'pending' | 'accepted' | 'declined';
+  is_member?: boolean;
 };
 
 export default function HomeScreen() {
@@ -72,7 +74,10 @@ export default function HomeScreen() {
   useEffect(() => {
     if (isFocused) {
       fetchOrganizations();
-      animateEntrance();
+      // Delay animation to ensure data is loaded
+      setTimeout(() => {
+        animateEntrance();
+      }, 100);
     }
   }, [isFocused]);
 
@@ -107,7 +112,7 @@ export default function HomeScreen() {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await axios.get('http://192.168.1.102:8000/api/getAllOrganizations', {
+      const response = await axios.get('http://192.168.10.157:8000/api/getAllOrganizations', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrganizations(response.data.organizations || []);
@@ -130,7 +135,7 @@ export default function HomeScreen() {
     try {
       const token = await AsyncStorage.getItem('token');
       await axios.post(
-        `http://192.168.1.102:8000/api/MakeRequestToOrganization`,
+        `http://192.168.10.157:8000/api/MakeRequestToOrganization`,
         { organization_id: orgId },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -141,6 +146,8 @@ export default function HomeScreen() {
         'Your request to join has been sent successfully!',
         [{ text: 'Got it', style: 'default' }]
       );
+      // Refresh organizations to get updated status
+      fetchOrganizations();
     } catch (error: any) {
       console.error('Error requesting to join:', error);
       const message = error.response?.data?.message || 'Failed to send join request';
@@ -148,6 +155,68 @@ export default function HomeScreen() {
     } finally {
       setRequestingId(null);
     }
+  };
+
+  const renderMembershipButton = (item: Organization) => {
+    // Check if user is already a member or has pending status
+    if (item.is_member || item.user_status === 'accepted') {
+      return (
+        <Chip
+          mode="flat"
+          style={[styles.statusChip, { backgroundColor: theme.colors.success + '20' }]}
+          textStyle={{ color: theme.colors.success, fontWeight: '600' }}
+          icon="check-circle"
+          compact
+        >
+          Already Joined
+        </Chip>
+      );
+    }
+    
+    if (item.user_status === 'pending') {
+      return (
+        <Chip
+          mode="flat"
+          style={[styles.statusChip, { backgroundColor: theme.colors.warning + '20' }]}
+          textStyle={{ color: theme.colors.warning, fontWeight: '600' }}
+          icon="schedule"
+          compact
+        >
+          Request Pending
+        </Chip>
+      );
+    }
+    
+    if (item.user_status === 'declined') {
+      return (
+        <Chip
+          mode="flat"
+          style={[styles.statusChip, { backgroundColor: theme.colors.error + '20' }]}
+          textStyle={{ color: theme.colors.error, fontWeight: '600' }}
+          icon="cancel"
+          compact
+        >
+          Request Declined
+        </Chip>
+      );
+    }
+    
+    // Default: not a member, can request to join
+    return (
+      <Button
+        mode="contained"
+        onPress={() => requestToJoin(item.id)}
+        loading={requestingId === item.id}
+        disabled={requestingId === item.id}
+        style={styles.joinButton}
+        contentStyle={styles.joinButtonContent}
+        labelStyle={styles.joinButtonLabel}
+        buttonColor={theme.colors.primary}
+        icon="send"
+      >
+        {requestingId === item.id ? 'Sending...' : 'Request to Join'}
+      </Button>
+    );
   };
 
   const filteredOrganizations = organizations.filter((org) =>
@@ -191,35 +260,20 @@ export default function HomeScreen() {
   );
 
   const renderOrganizationCard = ({ item, index }: { item: Organization; index: number }) => {
-    const cardAnim = new Animated.Value(0);
-    
-    React.useEffect(() => {
-      Animated.timing(cardAnim, {
-        toValue: 1,
-        duration: theme.animation.slow,
-        delay: index * 100,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start();
-    }, []);
-
     return (
       <Animated.View
         style={[
           {
-            opacity: cardAnim,
+            opacity: fadeAnim,
             transform: [
               {
-                translateY: cardAnim.interpolate({
+                translateY: fadeAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [50, 0],
+                  outputRange: [30, 0],
                 }),
               },
               {
-                scale: cardAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.9, 1],
-                }),
+                scale: scaleAnim,
               },
             ],
           },
@@ -270,26 +324,14 @@ export default function HomeScreen() {
                   </Text>
                 </View>
                 <View style={styles.feature}>
-                  <MaterialIcons name="verified" size={16} color={theme.colors.success} />
+                  <MaterialIcons name="verified-user" size={16} color={theme.colors.success} />
                   <Text style={[styles.featureText, { color: theme.colors.slate }]}>
                     Verified
                   </Text>
                 </View>
               </View>
               
-              <Button
-                mode="contained"
-                onPress={() => requestToJoin(item.id)}
-                loading={requestingId === item.id}
-                disabled={requestingId === item.id}
-                style={styles.joinButton}
-                contentStyle={styles.joinButtonContent}
-                labelStyle={styles.joinButtonLabel}
-                buttonColor={theme.colors.primary}
-                icon="send"
-              >
-                {requestingId === item.id ? 'Sending...' : 'Request to Join'}
-              </Button>
+              {renderMembershipButton(item)}
             </View>
           </Surface>
         </TouchableOpacity>
@@ -339,7 +381,7 @@ export default function HomeScreen() {
       ]}
     >
       <Surface style={styles.emptyCard} elevation={2}>
-        <MaterialIcons name="search-off" size={64} color={theme.colors.outline} />
+        <MaterialIcons name="search" size={64} color={theme.colors.outline} />
         <Text style={[styles.emptyTitle, { color: theme.colors.charcoal }]}>
           No Organizations Found
         </Text>
@@ -600,6 +642,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  statusChip: {
+    borderRadius: 12,
+    paddingHorizontal: 8,
   },
   listContent: {
     gap: 16,

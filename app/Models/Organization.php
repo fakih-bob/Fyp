@@ -25,11 +25,11 @@ class Organization extends Model
     }
 
     /**
-     * Users belonging to this organization.
+     * Users belonging to this organization through departments.
      */
     public function users()
     {
-        return $this->hasMany(User::class);
+        return $this->hasManyThrough(User::class, Department::class);
     }
 
     /**

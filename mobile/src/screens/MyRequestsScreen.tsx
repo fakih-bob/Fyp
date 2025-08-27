@@ -81,7 +81,10 @@ export default function MyRequestsScreen() {
   useEffect(() => {
     if (isFocused) {
       fetchAllRequests();
-      animateEntrance();
+      // Delay animation to ensure data is loaded
+      setTimeout(() => {
+        animateEntrance();
+      }, 100);
     }
   }, [isFocused]);
 
@@ -128,7 +131,7 @@ export default function MyRequestsScreen() {
   const fetchMyRequests = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await axios.get('http://192.168.1.102:8000/api/ShowAllMyRequests', {
+      const response = await axios.get('http://192.168.10.157:8000/api/ShowAllMyRequests', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setOrganizationRequests(response.data || []);
@@ -140,7 +143,7 @@ export default function MyRequestsScreen() {
   const fetchMyMaintenanceRequests = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const response = await axios.get('http://192.168.1.102:8000/api/my-maintenance-requests', {
+      const response = await axios.get('http://192.168.10.157:8000/api/my-maintenance-requests', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setMaintenanceRequests(response.data?.data || []);
@@ -167,7 +170,7 @@ export default function MyRequestsScreen() {
             setCancelingId(id);
             try {
               const token = await AsyncStorage.getItem('token');
-              await axios.delete(`http://192.168.1.102:8000/api/CancelMyRequest/${id}`, {
+              await axios.delete(`http://192.168.10.157:8000/api/CancelMyRequest/${id}`, {
                 headers: { Authorization: `Bearer ${token}` },
               });
               Alert.alert('Success', 'Request canceled');
@@ -198,11 +201,11 @@ export default function MyRequestsScreen() {
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'new': return 'fiber-new';
+      case 'new': return 'new-releases';
       case 'pending': return 'schedule';
       case 'approved': return 'check-circle';
-      case 'in-progress': return 'engineering';
-      case 'done': return 'task-alt';
+      case 'in-progress': return 'build';
+      case 'done': return 'check-circle';
       case 'declined': return 'cancel';
       default: return 'help';
     }
@@ -289,28 +292,16 @@ export default function MyRequestsScreen() {
   };
 
   const renderMaintenanceRequest = ({ item, index }: { item: MaintenanceRequest; index: number }) => {
-    const cardAnim = new Animated.Value(0);
-    
-    React.useEffect(() => {
-      Animated.timing(cardAnim, {
-        toValue: 1,
-        duration: theme.animation.slow,
-        delay: index * 100,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start();
-    }, []);
-
     return (
       <Animated.View
         style={[
           {
-            opacity: cardAnim,
+            opacity: fadeAnim,
             transform: [
               {
-                translateY: cardAnim.interpolate({
+                translateY: fadeAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [50, 0],
+                  outputRange: [30, 0],
                 }),
               },
             ],
@@ -383,28 +374,16 @@ export default function MyRequestsScreen() {
   };
 
   const renderOrganizationRequest = ({ item, index }: { item: OrganizationRequest; index: number }) => {
-    const cardAnim = new Animated.Value(0);
-    
-    React.useEffect(() => {
-      Animated.timing(cardAnim, {
-        toValue: 1,
-        duration: theme.animation.slow,
-        delay: index * 100,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start();
-    }, []);
-
     return (
       <Animated.View
         style={[
           {
-            opacity: cardAnim,
+            opacity: fadeAnim,
             transform: [
               {
-                translateY: cardAnim.interpolate({
+                translateY: fadeAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [50, 0],
+                  outputRange: [30, 0],
                 }),
               },
             ],
@@ -527,20 +506,64 @@ export default function MyRequestsScreen() {
       ]}
     >
       <Surface style={styles.emptyCard} elevation={2}>
-        <MaterialIcons 
-          name={activeTab === 'maintenance' ? 'build-circle' : 'business-center'} 
-          size={64} 
-          color={theme.colors.outline} 
-        />
+        <LinearGradient
+          colors={activeTab === 'maintenance' 
+            ? [theme.colors.maintenanceTeal, '#0B7D7A']
+            : [theme.colors.userIndigo, '#3F4BF0']
+          }
+          style={styles.emptyIconContainer}
+        >
+          <MaterialIcons 
+            name={activeTab === 'maintenance' ? 'build' : 'business'} 
+            size={48} 
+            color="white" 
+          />
+        </LinearGradient>
+        
         <Text style={[styles.emptyTitle, { color: theme.colors.charcoal }]}>
-          No {activeTab === 'maintenance' ? 'Maintenance' : 'Organization'} Requests
+          No {activeTab === 'maintenance' ? 'Maintenance' : 'Organization'} Requests Yet
         </Text>
         <Text style={[styles.emptyText, { color: theme.colors.slate }]}>
           {activeTab === 'maintenance' 
-            ? 'Create your first maintenance request using the + button below'
-            : 'Start by requesting to join an organization'
+            ? 'Need something fixed or maintained? Submit your first request and track its progress in real-time.'
+            : 'Join an organization to start collaborating with your team and accessing shared resources.'
           }
         </Text>
+        
+        <Button
+          mode="contained"
+          onPress={() => {
+            if (activeTab === 'maintenance') {
+              navigation.navigate('CreateMaintenanceRequest');
+            } else {
+              Alert.alert(
+                'Join Organization',
+                'Would you like to request to join an organization?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: 'Join', 
+                    onPress: () => {
+                      Alert.alert('Info', 'Join organization feature will be implemented soon!');
+                    }
+                  },
+                ]
+              );
+            }
+          }}
+          style={[
+            styles.emptyButton, 
+            { 
+              backgroundColor: activeTab === 'maintenance' 
+                ? theme.colors.maintenanceTeal 
+                : theme.colors.userIndigo 
+            }
+          ]}
+          icon={activeTab === 'maintenance' ? 'add' : 'business'}
+          contentStyle={{ height: 48 }}
+        >
+          {activeTab === 'maintenance' ? 'Submit Your First Request' : 'Join Organization'}
+        </Button>
       </Surface>
     </Animated.View>
   );
@@ -602,7 +625,7 @@ export default function MyRequestsScreen() {
           )}
         </ScrollView>
 
-        {/* FAB for creating maintenance requests */}
+        {/* Enhanced FAB for creating maintenance requests */}
         {activeTab === 'maintenance' && (
           <Animated.View
             style={[
@@ -614,10 +637,73 @@ export default function MyRequestsScreen() {
             ]}
           >
             <FAB
-              style={[styles.fab, { backgroundColor: theme.colors.maintenanceTeal }]}
+              style={[
+                styles.fab, 
+                { 
+                  backgroundColor: theme.colors.maintenanceTeal,
+                  shadowColor: theme.colors.maintenanceTeal,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }
+              ]}
               icon="add"
-              onPress={() => navigation.navigate('CreateMaintenanceRequest')}
-              label="New Request"
+              onPress={() => {
+                console.log('Navigating to CreateMaintenanceRequest');
+                navigation.navigate('CreateMaintenanceRequest');
+              }}
+              label="Submit Request"
+              customSize={64}
+              color="white"
+            />
+          </Animated.View>
+        )}
+
+        {/* FAB for organization requests tab */}
+        {activeTab === 'organization' && (
+          <Animated.View
+            style={[
+              styles.fabContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ scale: scaleAnim }],
+              },
+            ]}
+          >
+            <FAB
+              style={[
+                styles.fab, 
+                { 
+                  backgroundColor: theme.colors.userIndigo,
+                  shadowColor: theme.colors.userIndigo,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }
+              ]}
+              icon="business"
+              onPress={() => {
+                Alert.alert(
+                  'Join Organization',
+                  'Would you like to request to join a new organization?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { 
+                      text: 'Join', 
+                      onPress: () => {
+                        // Navigate to join organization screen
+                        // You may need to implement this screen
+                        Alert.alert('Info', 'Join organization feature will be implemented soon!');
+                      }
+                    },
+                  ]
+                );
+              }}
+              label="Join Organization"
+              customSize={64}
+              color="white"
             />
           </Animated.View>
         )}
@@ -807,6 +893,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     opacity: 0.7,
+    marginBottom: 8,
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  emptyButton: {
+    borderRadius: 12,
+    marginTop: 16,
+    minWidth: 200,
   },
   fabContainer: {
     position: 'absolute',

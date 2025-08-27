@@ -204,7 +204,7 @@ export default function NotificationsScreen() {
               </View>
               <View style={styles.statsDivider} />
               <View style={styles.statsItem}>
-                <MaterialIcons name="mark-email-unread" size={24} color="white" />
+                <MaterialIcons name="email" size={24} color="white" />
                 <Text style={styles.statsNumber}>{unreadCount}</Text>
                 <Text style={styles.statsLabel}>Unread</Text>
               </View>
@@ -227,28 +227,16 @@ export default function NotificationsScreen() {
   };
 
   const renderNotification = ({ item, index }: { item: Notification; index: number }) => {
-    const cardAnim = new Animated.Value(0);
-    
-    React.useEffect(() => {
-      Animated.timing(cardAnim, {
-        toValue: 1,
-        duration: theme.animation.slow,
-        delay: index * 100,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start();
-    }, []);
-
     return (
       <Animated.View
         style={[
           {
-            opacity: cardAnim,
+            opacity: fadeAnim,
             transform: [
               {
-                translateY: cardAnim.interpolate({
+                translateY: fadeAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [50, 0],
+                  outputRange: [30, 0],
                 }),
               },
             ],
@@ -303,7 +291,7 @@ export default function NotificationsScreen() {
             )}
             
             <IconButton
-              icon="more-vert"
+              icon="more-horiz"
               size={16}
               iconColor={theme.colors.slate}
               onPress={() => markAsRead(item.id)}
@@ -344,7 +332,7 @@ export default function NotificationsScreen() {
       ]}
     >
       <Surface style={styles.emptyCard} elevation={2}>
-        <MaterialIcons name="notifications-none" size={64} color={theme.colors.outline} />
+        <MaterialIcons name="notifications" size={64} color={theme.colors.outline} />
         <Text style={[styles.emptyTitle, { color: theme.colors.charcoal }]}>
           No Notifications
         </Text>
@@ -384,7 +372,7 @@ export default function NotificationsScreen() {
                 onPress={markAllAsRead}
                 style={styles.markAllButton}
                 textColor={theme.colors.primary}
-                icon="done-all"
+                icon="check"
                 compact
               >
                 Mark All as Read

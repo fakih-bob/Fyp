@@ -93,7 +93,7 @@ const RegisterScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await axios.post('http://192.168.1.102:8000/api/register', {
+      const res = await axios.post('http://192.168.10.157:8000/api/register', {
         name: name.trim(),
         email: email.trim(),
         password,
@@ -153,7 +153,7 @@ const RegisterScreen: React.FC = () => {
             <View style={styles.logoContainer}>
               <Surface style={styles.logoSurface} elevation={3}>
                 <MaterialIcons 
-                  name="person-add" 
+                  name="person-add-alt" 
                   size={48} 
                   color={theme.colors.secondary} 
                 />
@@ -243,7 +243,7 @@ const RegisterScreen: React.FC = () => {
                   mode="outlined"
                   secureTextEntry={!showConfirmPassword}
                   style={styles.input}
-                  left={<TextInput.Icon icon="lock-check-outline" />}
+                  left={<TextInput.Icon icon="lock-outline" />}
                   right={
                     <TextInput.Icon 
                       icon={showConfirmPassword ? "eye-off" : "eye"} 

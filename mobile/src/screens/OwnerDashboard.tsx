@@ -64,7 +64,10 @@ export default function OwnerOrganizationsScreen() {
   useEffect(() => {
     if (isFocused) {
       fetchOrganizations();
-      animateEntrance();
+      // Delay animation to ensure data is loaded
+      setTimeout(() => {
+        animateEntrance();
+      }, 200);
     }
   }, [isFocused]);
 
@@ -89,19 +92,72 @@ export default function OwnerOrganizationsScreen() {
   };
 
   const fetchOrganizations = async () => {
-    setLoading(true);
     try {
+      // Only set loading if not refreshing
+      if (!refreshing) setLoading(true);
+      
       const token = await AsyncStorage.getItem('token');
+      console.log('Fetching organizations...');
+      console.log('Token:', token ? 'Present' : 'Missing');
+      
+      if (!token) {
+        Alert.alert('Error', 'Authentication token not found. Please login again.');
+        setOrganizations([]);
+        return;
+      }
+      
       const response = await axios.get(
-        'http://192.168.1.102:8000/api/myorganizations',
+        'http://192.168.10.157:8000/api/myorganizations',
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000 // 10 second timeout
         }
       );
-      setOrganizations(response.data.organization || []);
-    } catch (error) {
+      
+      console.log('Fetch response:', response.data);
+      console.log('Organizations data:', response.data.organization);
+      
+      // Handle multiple possible response structures
+      let organizationsData;
+      if (response.data.organization) {
+        organizationsData = response.data.organization;
+      } else if (response.data.organizations) {
+        organizationsData = response.data.organizations;
+      } else if (Array.isArray(response.data)) {
+        organizationsData = response.data;
+      } else if (response.data.data) {
+        organizationsData = response.data.data;
+      } else {
+        organizationsData = [];
+      }
+      
+      const validOrganizations = Array.isArray(organizationsData) ? organizationsData : [];
+      console.log('Setting organizations:', validOrganizations);
+      setOrganizations(validOrganizations);
+      
+    } catch (error: any) {
       console.error('Fetch error:', error);
-      Alert.alert('Error', 'Failed to load organizations');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      let errorMessage = 'Failed to load organizations';
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Request timeout. Please check your connection.';
+      } else if (!error.response) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'You do not have permission to view organizations';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Authentication expired. Please login again.';
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
+      Alert.alert('Error', errorMessage);
+      setOrganizations([]); // Set empty array on error
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -131,14 +187,36 @@ export default function OwnerOrganizationsScreen() {
   const deleteOrganization = async (id: number) => {
     try {
       const token = await AsyncStorage.getItem('token');
-      await axios.delete(`http://192.168.1.102:8000/api/organizations/${id}`, {
+      console.log('Attempting to delete organization with ID:', id);
+      console.log('Token:', token ? 'Present' : 'Missing');
+      
+      if (!token) {
+        Alert.alert('Error', 'Please login again');
+        return;
+      }
+      
+      const response = await axios.delete(`http://192.168.10.157:8000/api/organizations/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      
+      console.log('Delete response:', response.data);
       fetchOrganizations();
       Alert.alert('Success', 'Organization deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Delete failed:', error);
-      Alert.alert('Error', 'Failed to delete organization');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      let errorMessage = 'Failed to delete organization';
+      if (error.response?.status === 403) {
+        errorMessage = 'You do not have permission to delete this organization';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Organization not found';
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
+      Alert.alert('Error', errorMessage);
     }
   };
 
@@ -189,28 +267,16 @@ export default function OwnerOrganizationsScreen() {
   };
 
   const renderOrganization = ({ item, index }: { item: Organization; index: number }) => {
-    const cardAnim = new Animated.Value(0);
-    
-    React.useEffect(() => {
-      Animated.timing(cardAnim, {
-        toValue: 1,
-        duration: theme.animation.slow,
-        delay: index * 100,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start();
-    }, []);
-
     return (
       <Animated.View
         style={[
           {
-            opacity: cardAnim,
+            opacity: fadeAnim,
             transform: [
               {
-                translateY: cardAnim.interpolate({
+                translateY: fadeAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [50, 0],
+                  outputRange: [30, 0],
                 }),
               },
             ],
@@ -245,7 +311,7 @@ export default function OwnerOrganizationsScreen() {
               </View>
 
               <IconButton
-                icon="more-vert"
+                icon="more-horiz"
                 size={20}
                 iconColor={theme.colors.slate}
                 onPress={() => {}}
@@ -416,37 +482,42 @@ export default function OwnerOrganizationsScreen() {
           )}
         </View>
 
-        {/* Premium FAB */}
-        <Animated.View
-          style={[
-            {
-              opacity: fadeAnim,
-              transform: [
-                {
-                  scale: fadeAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.8, 1],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <FAB
+        {/* Premium FAB - Always show when not loading */}
+        {!loading && (
+          <Animated.View
             style={[
-              styles.fab,
               {
-                backgroundColor: theme.colors.ownerGold,
-                shadowColor: theme.colors.ownerGold,
+                opacity: fadeAnim,
+                transform: [
+                  {
+                    scale: fadeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.8, 1],
+                    }),
+                  },
+                ],
               },
             ]}
-            icon="add"
-            onPress={() => navigation.navigate('OrganizationForm', { mode: 'create' })}
-            label="New Organization"
-            color="white"
-            customSize={56}
-          />
-        </Animated.View>
+          >
+            <FAB
+              style={[
+                styles.fab,
+                {
+                  backgroundColor: theme.colors.ownerGold,
+                  shadowColor: theme.colors.ownerGold,
+                },
+              ]}
+              icon="add"
+              onPress={() => {
+                console.log('FAB pressed - navigating to OrganizationForm');
+                navigation.navigate('OrganizationForm', { mode: 'create' });
+              }}
+              label={organizations.length > 0 ? "New Organization" : "Create Organization"}
+              color="white"
+              customSize={56}
+            />
+          </Animated.View>
+        )}
       </LinearGradient>
     </View>
   );

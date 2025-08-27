@@ -137,8 +137,8 @@ export default function OrganizationForm() {
     try {
       const urlApi =
         mode === 'edit' && organization
-          ? `http://192.168.1.102:8000/api/organizations/${organization.id}`
-          : 'http://192.168.1.102:8000/api/organizations';
+          ? `http://192.168.10.157:8000/api/organizations/${organization.id}`
+          : 'http://192.168.10.157:8000/api/organizations';
 
       const method = mode === 'edit' ? 'POST' : 'POST'; // Laravel can handle file PUT via POST + _method
       if (mode === 'edit') {
@@ -263,7 +263,7 @@ export default function OrganizationForm() {
                   numberOfLines={4}
                   style={[styles.input, { height: 120 }]}
                   placeholder="Describe your organization..."
-                  left={<TextInput.Icon icon="text-long" />}
+                  left={<TextInput.Icon icon="description" />}
                   outlineColor={theme.colors.outline}
                   activeOutlineColor={theme.colors.primary}
                 />

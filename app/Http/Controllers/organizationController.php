@@ -81,41 +81,108 @@ public function getAllOrganizations()
 
     public function destroy($id)
     {
-        $organization = Organization::findOrFail($id);
+        try {
+            $organization = Organization::findOrFail($id);
+            $currentUserId = Auth::id();
+            
+            // Debug logging
+            \Log::info('Delete attempt', [
+                'organization_id' => $id,
+                'organization_owner_id' => $organization->owner_id,
+                'current_user_id' => $currentUserId,
+                'user_role' => Auth::user()->role ?? 'unknown'
+            ]);
 
-        if ($organization->owner_id !== Auth::id()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+            if ($organization->owner_id !== $currentUserId) {
+                \Log::warning('Unauthorized delete attempt', [
+                    'organization_id' => $id,
+                    'organization_owner_id' => $organization->owner_id,
+                    'current_user_id' => $currentUserId
+                ]);
+                return response()->json(['error' => 'Unauthorized: You can only delete organizations you own'], 403);
+            }
+
+            $user = User::find($currentUserId);
+            if (!$user) {
+                return response()->json(['error' => 'User not found'], 404);
+            }
+
+            // Delete the organization first
+            $organization->delete();
+            
+            // Only change role to user if they have no other organizations
+            $remainingOrgs = Organization::where('owner_id', $currentUserId)->count();
+            if ($remainingOrgs === 0) {
+                $user->role = 'user';
+                $user->save();
+            }
+
+            \Log::info('Organization deleted successfully', ['organization_id' => $id]);
+            return response()->json(['message' => 'Organization deleted successfully'], 200);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error deleting organization', [
+                'organization_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => 'Failed to delete organization'], 500);
         }
-
-        $user = User::find(Auth::id());
-        if (!$user) {
-            return response()->json(['error' => 'User not found'], 404);
-        }
-        $user->role='user';
-        $user->save();
-
-        $organization->delete();
-
-       return response()->json(['message' => 'Organization Deleted successfuly'], 200);
     }
 
 public function getMyOrganization()
 {
-    $user = Auth::user();
+    try {
+        $user = Auth::user();
+        
+        \Log::info('Fetching user organizations', [
+            'user_id' => $user->id ?? 'unknown',
+            'user_role' => $user->role ?? 'unknown'
+        ]);
 
-    if (!$user || $user->role !== 'owner') {
-        return response()->json(['error' => 'Unauthorized or not an owner'], 403);
+        if (!$user) {
+            return response()->json(['error' => 'User not authenticated'], 401);
+        }
+
+        // Get organizations owned by this user
+        $organizations = Organization::where('owner_id', $user->id)->get();
+        
+        // Manually add counts to avoid relationship issues
+        foreach ($organizations as $org) {
+            try {
+                $org->departments_count = $org->departments()->count();
+            } catch (\Exception $e) {
+                \Log::warning('Failed to count departments', ['org_id' => $org->id, 'error' => $e->getMessage()]);
+                $org->departments_count = 0;
+            }
+            // For users count, we'll use a simpler approach or set to 0 for now
+            $org->users_count = 0; // TODO: Implement proper user counting via department relationships
+        }
+
+        \Log::info('Organizations found', [
+            'user_id' => $user->id,
+            'organization_count' => $organizations->count()
+        ]);
+
+        // If user has organizations but role is not 'owner', update their role
+        if ($organizations->count() > 0 && $user->role !== 'owner') {
+            $user->role = 'owner';
+            $user->save();
+            \Log::info('Updated user role to owner', ['user_id' => $user->id]);
+        }
+
+        return response()->json([
+            'organization' => $organizations,
+            'user_role' => $user->role
+        ], 200);
+        
+    } catch (\Exception $e) {
+        \Log::error('Error fetching user organizations', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        return response()->json(['error' => 'Failed to fetch organizations'], 500);
     }
-
-    $organization = Organization::where('owner_id', $user->id)->get();
-
-    if (!$organization) {
-        return response()->json(['message' => 'Organization not found'], 404);
-    }
-
-    return response()->json([
-        'organization' => $organization
-    ], 200);
 }
 
 

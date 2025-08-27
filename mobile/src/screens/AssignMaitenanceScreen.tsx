@@ -1,9 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, Alert } from 'react-native';
-import { Text, ActivityIndicator, List, Button, RadioButton, Divider } from 'react-native-paper';
+import { 
+  View, 
+  FlatList, 
+  StyleSheet, 
+  Alert, 
+  StatusBar, 
+  Dimensions, 
+  Animated, 
+  Easing,
+  RefreshControl 
+} from 'react-native';
+import { 
+  Text, 
+  ActivityIndicator, 
+  Button, 
+  RadioButton, 
+  Surface,
+  Avatar,
+  Chip,
+  IconButton 
+} from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRoute, useNavigation, NavigationProp, RouteProp } from '@react-navigation/native';
+import { theme as customTheme } from '../theme/theme';
+
+const { width } = Dimensions.get('window');
 
 type TeamMember = { id: number; name: string };
 
@@ -19,8 +43,13 @@ export default function AssignMaintenanceScreen() {
   const [departmentId, setDepartmentId] = useState<number | undefined>(passedDeptId);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
+  
+  // Animation values
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [slideAnim] = useState(new Animated.Value(50));
 
   useEffect(() => {
     (async () => {
@@ -38,7 +67,7 @@ export default function AssignMaintenanceScreen() {
       try {
         const token = await AsyncStorage.getItem('token');
         const res = await axios.get(
-          `http://192.168.1.102:8000/api/maintenance-team/${departmentId}`,
+          `http://192.168.10.157:8000/api/maintenance-team/${departmentId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -70,7 +99,7 @@ export default function AssignMaintenanceScreen() {
       const body = { user_id: Number(selectedMemberId) };
 
       const res = await axios.post(
-        `http://192.168.1.102:8000/api/maintenance-requests/${requestId}/assign`,
+        `http://192.168.10.157:8000/api/maintenance-requests/${requestId}/assign`,
         body,
         {
           headers: {
