@@ -63,10 +63,13 @@ class User extends Authenticatable
         return $this->hasOne(Organization::class, 'admin_id');
     }
 
-    public function departments()
-    {
-        return $this->belongsToMany(Department::class);
-    }
+   public function departments()
+{
+    // If your pivot table is 'department_user' (Laravel default naming):
+    return $this->belongsToMany(\App\Models\Department::class, 'department_user', 'user_id', 'department_id');
+
+    // If your pivot table is named differently, adjust the second argument.
+}
 
     public function maintenanceRequests()
     {

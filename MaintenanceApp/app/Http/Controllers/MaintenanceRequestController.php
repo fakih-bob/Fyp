@@ -55,6 +55,23 @@ public function store(Request $request)
         'data' => $maintenanceRequest->load('photos'),
     ], 201);
 }    
+
+
+
+ public function userDepartments()
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        // Requires: User::departments() belongsToMany relation
+        $departments = $user->departments()
+            ->get(['departments.id', 'departments.name', 'departments.description']);
+
+        return response()->json(['data' => $departments]);
+    }
+
 public function FetchAllRequests()
 {
     // Get the currently authenticated user (admin)
