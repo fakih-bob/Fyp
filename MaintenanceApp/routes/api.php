@@ -93,6 +93,7 @@ Route::get('/getAllUsers', [OrganizationController::class, 'getAllUsers']);
     // Shows all requests sent by the logged-in user
     Route::get('/ShowAllMyRequests', [OrganizationUserRequestController::class, 'ShowAllMyRequests']);
     Route::get('/AllMyDepartments', [MaintenanceRequestController::class, 'userDepartments']);
+    Route::get('/AllMyMaintenanceRequest', [MaintenanceRequestController::class, 'fetchMyMaintenanceRequest']);
 
     // Cancels a specific request sent by the user
     Route::delete('/CancelMyRequest/{id}', [OrganizationUserRequestController::class, 'CancelMyRequest']);

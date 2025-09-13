@@ -72,6 +72,24 @@ public function store(Request $request)
         return response()->json(['data' => $departments]);
     }
 
+
+    public function fetchMyMaintenanceRequest(){
+        $userID = Auth::id();
+        if (!$userID) {
+        return response()->json([
+            'message' => 'Unauthorized.'
+        ], 401);
+    }else{
+        $requests = MaintenanceRequest::with(['user', 'department', 'assignee', 'photos'])
+                ->where('department_id', $userID)
+                ->get();
+
+    return response()->json([
+        'data' => $requests
+    ], 200);
+    }
+    }
+
 public function FetchAllRequests()
 {
     // Get the currently authenticated user (admin)
