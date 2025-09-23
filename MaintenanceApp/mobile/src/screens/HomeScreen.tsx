@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -12,16 +12,13 @@ import {
   ScrollView,
   StatusBar,
   Dimensions,
+  Image,
 } from 'react-native';
-import { 
-  Text, 
-  Card, 
-  Button, 
-  TextInput, 
-  Surface, 
+import {
+  Text,
+  Button,
+  Surface,
   Chip,
-  useTheme,
-  Badge,
   Searchbar,
   FAB,
 } from 'react-native-paper';
@@ -48,10 +45,10 @@ type Organization = {
   id: number;
   name: string;
   description?: string;
-  url?: string;
+  url?: string; // image url
   departments_count?: number;
   members_count?: number;
-  user_status?: 'not_member' | 'pending' | 'accepted' | 'declined';
+  user_status?: 'not_member' | 'pending' | 'approved' | 'declined';
   is_member?: boolean;
 };
 
@@ -65,7 +62,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [requestingId, setRequestingId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
-  
+
   // Animation values
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(50));
@@ -74,7 +71,6 @@ export default function HomeScreen() {
   useEffect(() => {
     if (isFocused) {
       fetchOrganizations();
-      // Delay animation to ensure data is loaded
       setTimeout(() => {
         animateEntrance();
       }, 100);
@@ -130,27 +126,36 @@ export default function HomeScreen() {
     fetchOrganizations();
   };
 
+  // GLOBAL FLAG: user in ANY org?
+  const hasAnyApprovedMembership = useMemo(
+    () => organizations.some(o => o.is_member || o.user_status === 'approved'),
+    [organizations]
+  );
+
   const requestToJoin = async (orgId: number) => {
+    if (hasAnyApprovedMembership) {
+      Alert.alert(
+        'Already in an organization',
+        'You are already a member of an organization. Leave it before requesting to join another.'
+      );
+      return;
+    }
+
     setRequestingId(orgId);
     try {
       const token = await AsyncStorage.getItem('token');
       await axios.post(
-        `http://10.0.2.2:8000/api/MakeRequestToOrganization`,
+        'http://10.0.2.2:8000/api/MakeRequestToOrganization',
         { organization_id: orgId },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      Alert.alert(
-        '🎉 Success!', 
-        'Your request to join has been sent successfully!',
-        [{ text: 'Got it', style: 'default' }]
-      );
-      // Refresh organizations to get updated status
+      Alert.alert('🎉 Success!', 'Your request to join has been sent successfully!', [
+        { text: 'Got it', style: 'default' },
+      ]);
       fetchOrganizations();
     } catch (error: any) {
       console.error('Error requesting to join:', error);
-      const message = error.response?.data?.message || 'Failed to send join request';
+      const message = error?.response?.data?.message || 'Failed to send join request';
       Alert.alert('Error', message);
     } finally {
       setRequestingId(null);
@@ -158,8 +163,7 @@ export default function HomeScreen() {
   };
 
   const renderMembershipButton = (item: Organization) => {
-    // Check if user is already a member or has pending status
-    if (item.is_member || item.user_status === 'accepted') {
+    if (item.is_member || item.user_status === 'approved') {
       return (
         <Chip
           mode="flat"
@@ -172,7 +176,7 @@ export default function HomeScreen() {
         </Chip>
       );
     }
-    
+
     if (item.user_status === 'pending') {
       return (
         <Chip
@@ -186,7 +190,7 @@ export default function HomeScreen() {
         </Chip>
       );
     }
-    
+
     if (item.user_status === 'declined') {
       return (
         <Chip
@@ -200,21 +204,26 @@ export default function HomeScreen() {
         </Chip>
       );
     }
-    
-    // Default: not a member, can request to join
+
+    const disabled = hasAnyApprovedMembership || requestingId === item.id;
+
     return (
       <Button
         mode="contained"
         onPress={() => requestToJoin(item.id)}
         loading={requestingId === item.id}
-        disabled={requestingId === item.id}
+        disabled={disabled}
         style={styles.joinButton}
         contentStyle={styles.joinButtonContent}
         labelStyle={styles.joinButtonLabel}
         buttonColor={theme.colors.primary}
-        icon="send"
+        icon={hasAnyApprovedMembership ? 'block-helper' : 'send'}
       >
-        {requestingId === item.id ? 'Sending...' : 'Request to Join'}
+        {hasAnyApprovedMembership
+          ? 'Join Disabled (Already in an org)'
+          : requestingId === item.id
+            ? 'Sending...'
+            : 'Request to Join'}
       </Button>
     );
   };
@@ -259,7 +268,7 @@ export default function HomeScreen() {
     </Animated.View>
   );
 
-  const renderOrganizationCard = ({ item, index }: { item: Organization; index: number }) => {
+  const renderOrganizationCard = ({ item }: { item: Organization; index: number }) => {
     return (
       <Animated.View
         style={[
@@ -272,9 +281,7 @@ export default function HomeScreen() {
                   outputRange: [30, 0],
                 }),
               },
-              {
-                scale: scaleAnim,
-              },
+              { scale: scaleAnim },
             ],
           },
         ]}
@@ -283,22 +290,26 @@ export default function HomeScreen() {
           <Surface style={styles.organizationCard} elevation={4}>
             <View style={styles.cardHeader}>
               <View style={styles.orgIconContainer}>
-                <LinearGradient
-                  colors={[theme.colors.userIndigo, theme.colors.maintenanceTeal]}
-                  style={styles.orgIcon}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <MaterialIcons name="business" size={24} color="white" />
-                </LinearGradient>
+                {/* Use the image url as the mini picture; fallback to icon if missing */}
+                {item.url ? (
+                  <Image source={{ uri: item.url }} style={styles.orgIconImage} resizeMode="cover" />
+                ) : (
+                  <LinearGradient
+                    colors={[theme.colors.userIndigo, theme.colors.maintenanceTeal]}
+                    style={styles.orgIcon}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <MaterialIcons name="business" size={24} color="white" />
+                  </LinearGradient>
+                )}
               </View>
+
               <View style={styles.cardHeaderInfo}>
-                <Text style={[styles.orgName, { color: theme.colors.charcoal }]}>
-                  {item.name}
-                </Text>
+                <Text style={[styles.orgName, { color: theme.colors.charcoal }]}>{item.name}</Text>
                 <View style={styles.badgeContainer}>
-                  <Chip 
-                    icon="people" 
+                  <Chip
+                    icon="people"
                     style={[styles.membersBadge, { backgroundColor: theme.colors.primaryLight }]}
                     textStyle={{ color: theme.colors.primary, fontSize: 11 }}
                     compact
@@ -325,12 +336,10 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.feature}>
                   <MaterialIcons name="verified-user" size={16} color={theme.colors.success} />
-                  <Text style={[styles.featureText, { color: theme.colors.slate }]}>
-                    Verified
-                  </Text>
+                  <Text style={[styles.featureText, { color: theme.colors.slate }]}>Verified</Text>
                 </View>
               </View>
-              
+
               {renderMembershipButton(item)}
             </View>
           </Surface>
@@ -357,7 +366,7 @@ export default function HomeScreen() {
           Find the perfect organization to join and grow
         </Text>
       </View>
-      
+
       <Searchbar
         placeholder="Search organizations..."
         onChangeText={setSearch}
@@ -388,12 +397,7 @@ export default function HomeScreen() {
         <Text style={[styles.emptyText, { color: theme.colors.slate }]}>
           {search ? 'Try adjusting your search terms' : 'No organizations are available at the moment'}
         </Text>
-        <Button
-          mode="outlined"
-          onPress={() => setSearch('')}
-          style={styles.clearButton}
-          icon="refresh"
-        >
+        <Button mode="outlined" onPress={() => setSearch('')} style={styles.clearButton} icon="refresh">
           Clear Search
         </Button>
       </Surface>
@@ -403,7 +407,7 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
-      
+
       <LinearGradient
         colors={[theme.colors.background, theme.colors.surfaceVariant]}
         style={styles.backgroundGradient}
@@ -424,24 +428,16 @@ export default function HomeScreen() {
         >
           {renderHeader()}
           {renderStatsCard()}
-          
+
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={theme.colors.primary} />
-              <Text style={[styles.loadingText, { color: theme.colors.slate }]}>
-                Loading organizations...
-              </Text>
+              <Text style={[styles.loadingText, { color: theme.colors.slate }]}>Loading organizations...</Text>
             </View>
           ) : filteredOrganizations.length === 0 ? (
             renderEmptyState()
           ) : (
-            <Animated.View
-              style={[
-                {
-                  opacity: fadeAnim,
-                },
-              ]}
-            >
+            <Animated.View style={[{ opacity: fadeAnim }]}>
               <FlatList
                 data={filteredOrganizations}
                 keyExtractor={(item) => item.id.toString()}
@@ -490,80 +486,33 @@ export default function HomeScreen() {
   );
 }
 
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  backgroundGradient: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 100,
-  },
-  header: {
-    marginBottom: 24,
-  },
-  welcomeContainer: {
-    marginBottom: 20,
-  },
-  welcomeText: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 4,
-    letterSpacing: 0.5,
-  },
-  subtitleText: {
-    fontSize: 16,
-    fontWeight: '400',
-    opacity: 0.8,
-  },
+  container: { flex: 1 },
+  backgroundGradient: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 100 },
+
+  header: { marginBottom: 24 },
+  welcomeContainer: { marginBottom: 20 },
+  welcomeText: { fontSize: 28, fontWeight: '700', marginBottom: 4, letterSpacing: 0.5 },
+  subtitleText: { fontSize: 16, fontWeight: '400', opacity: 0.8 },
+
   searchBar: {
     borderRadius: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderWidth: 1,
     borderColor: 'rgba(37, 99, 235, 0.1)',
   },
-  searchInput: {
-    fontSize: 16,
-  },
-  statsCard: {
-    borderRadius: 20,
-    marginBottom: 24,
-    overflow: 'hidden',
-  },
-  statsGradient: {
-    padding: 24,
-  },
-  statsContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  statsItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statsDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    marginHorizontal: 20,
-  },
-  statsNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: 'white',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  statsLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
-    textAlign: 'center',
-  },
+  searchInput: { fontSize: 16 },
+
+  statsCard: { borderRadius: 20, marginBottom: 24, overflow: 'hidden' },
+  statsGradient: { padding: 24 },
+  statsContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  statsItem: { alignItems: 'center', flex: 1 },
+  statsDivider: { width: 1, height: 40, backgroundColor: 'rgba(255, 255, 255, 0.3)', marginHorizontal: 20 },
+  statsNumber: { fontSize: 24, fontWeight: '700', color: 'white', marginTop: 8, marginBottom: 4 },
+  statsLabel: { fontSize: 12, fontWeight: '500', color: 'rgba(255, 255, 255, 0.9)', textAlign: 'center' },
+
   organizationCard: {
     borderRadius: 20,
     padding: 20,
@@ -571,21 +520,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.1,
     shadowRadius: 16,
     elevation: 8,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  orgIconContainer: {
-    marginRight: 16,
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 },
+  orgIconContainer: { marginRight: 16 },
+  orgIconImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#eee',
   },
   orgIcon: {
     width: 48,
@@ -594,75 +540,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardHeaderInfo: {
-    flex: 1,
-  },
-  orgName: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 8,
-    letterSpacing: 0.3,
-  },
-  badgeContainer: {
-    flexDirection: 'row',
-  },
-  membersBadge: {
-    alignSelf: 'flex-start',
-  },
-  orgDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 16,
-    opacity: 0.8,
-  },
-  cardFooter: {
-    gap: 16,
-  },
-  featuresContainer: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  feature: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  featureText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  joinButton: {
-    borderRadius: 12,
-    elevation: 2,
-  },
-  joinButtonContent: {
-    paddingVertical: 8,
-  },
-  joinButtonLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  statusChip: {
-    borderRadius: 12,
-    paddingHorizontal: 8,
-  },
-  listContent: {
-    gap: 16,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
+  cardHeaderInfo: { flex: 1 },
+  orgName: { fontSize: 20, fontWeight: '700', marginBottom: 8, letterSpacing: 0.3 },
+  badgeContainer: { flexDirection: 'row' },
+  membersBadge: { alignSelf: 'flex-start' },
+
+  orgDescription: { fontSize: 14, lineHeight: 20, marginBottom: 16, opacity: 0.8 },
+
+  cardFooter: { gap: 16 },
+  featuresContainer: { flexDirection: 'row', gap: 16 },
+  feature: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  featureText: { fontSize: 12, fontWeight: '500' },
+
+  joinButton: { borderRadius: 12, elevation: 2 },
+  joinButtonContent: { paddingVertical: 8 },
+  joinButtonLabel: { fontSize: 14, fontWeight: '600', letterSpacing: 0.5 },
+
+  statusChip: { borderRadius: 12, paddingHorizontal: 8 },
+
+  listContent: { gap: 16 },
+
+  loadingContainer: { alignItems: 'center', paddingVertical: 40 },
+  loadingText: { marginTop: 16, fontSize: 16, fontWeight: '500' },
+
+  emptyContainer: { alignItems: 'center', paddingVertical: 40 },
   emptyCard: {
     padding: 32,
     borderRadius: 20,
@@ -670,32 +571,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     maxWidth: width - 80,
   },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  clearButton: {
-    borderRadius: 12,
-  },
+  emptyTitle: { fontSize: 20, fontWeight: '700', marginTop: 16, marginBottom: 8, textAlign: 'center' },
+  emptyText: { fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
+  clearButton: { borderRadius: 12 },
+
   fab: {
     position: 'absolute',
     margin: 20,
     right: 0,
     bottom: 0,
     borderRadius: 28,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,

@@ -6,6 +6,7 @@ use App\Models\Department;
 use App\Models\Organization;
 use App\Models\OrganizationUserRequest;
 use App\Models\User;
+use DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -14,28 +15,58 @@ class OrganizationUserRequestController extends Controller
     
     public function MakeRequestToOrganization(Request $request)
 {
-    $request->validate([
-        'organization_id' => 'required|integer',
+    // Validate and ensure the organization exists
+    $validated = $request->validate([
+        'organization_id' => 'required|integer|exists:organizations,id',
     ]);
 
-   
-    $organization = Organization::find($request->organization_id);
-    if (!$organization) {
-        return response()->json(['message' => 'Organization not found.'], 404);
+    $userId = Auth::id();
+    $orgId  = (int) $validated['organization_id'];
+
+    // === 1) Block if user is already in ANY organization ===
+    // If your pivot has a 'status' column, we only consider approved/accepted as active membership.
+    // If there's no 'status' column, any row means "already a member".
+    $alreadyInAnyOrganization = DB::table('organization_user_requests')
+        ->where('user_id', $userId)
+        ->when(
+            DB::getSchemaBuilder()->hasColumn('organization_user_requests', 'status'),
+            function ($q) {
+                $q->whereIn('status', ['approved', 'accepted', 1]); // adapt to your actual "approved" values
+            }
+        )
+        ->exists();
+
+    if ($alreadyInAnyOrganization) {
+        return response()->json([
+            'message' => "You're already in an organization. Please leave it before joining another."
+        ], 409);
     }
 
-    $existing = OrganizationUserRequest::where('user_id', Auth::id())
-        ->where('organization_id', $request->organization_id)
+    // === 2) Block duplicate request to the SAME organization (any status) ===
+    $existing = OrganizationUserRequest::where('user_id', $userId)
+        ->where('organization_id', $orgId)
         ->first();
 
     if ($existing) {
         return response()->json(['message' => 'Request already exists.'], 409);
     }
 
+    // (Optional but safe) If you also treat an accepted request as membership anywhere, block that too:
+    $hasAcceptedRequestAnywhere = OrganizationUserRequest::where('user_id', $userId)
+        ->whereIn('status', ['approved', 'accepted', 1]) // align to your values
+        ->exists();
+
+    if ($hasAcceptedRequestAnywhere) {
+        return response()->json([
+            'message' => "You're already in an organization."
+        ], 409);
+    }
+
+    // === 3) Create the new request ===
     $orgRequest = OrganizationUserRequest::create([
-        'user_id' => Auth::id(),
-        'organization_id' => $request->organization_id,
-        'status' => 'pending',
+        'user_id'         => $userId,
+        'organization_id' => $orgId,
+        'status'          => 'pending',
     ]);
 
     return response()->json([
@@ -43,7 +74,6 @@ class OrganizationUserRequestController extends Controller
         'request' => $orgRequest
     ], 201);
 }
-
 
     
     public function ShowAllMyRequests()

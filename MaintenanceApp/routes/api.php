@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\departmentController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrganizationUserRequestController;
 use App\Http\Controllers\MaintenanceRequestController;
 use App\Http\Controllers\UserProfileController;
@@ -138,4 +139,13 @@ Route::middleware('admin.token')->group(function () {
     Route::get('/admin/users',          [OrganizationController::class, 'getAllUsers']);
     Route::delete('/admin/organizations/{id}', [OrganizationController::class, 'destroy']);
     Route::patch('/admin/users/{user}/restriction', [UserProfileController::class, 'RestrictAndUnresctrict']);
+});
+
+
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/devices', [NotificationController::class, 'saveDevice']);            // store FCM token
+    Route::get('/notifications', [NotificationController::class, 'index']);            // list DB notifications
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+    Route::post('/demo/action', [NotificationController::class, 'demoAction']);        // trigger push+save
 });
