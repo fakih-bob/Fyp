@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Department;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -135,6 +136,120 @@ public function getMyOrganization()
     ], 200);
 }
 
+  public function assignOperator(Request $request, Organization $organization)
+    {
+        $data = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
 
-    
+        $user = User::findOrFail($data['user_id']); // Eloquent only
+
+        // 1) Set operator_id on the organization
+        $organization->operator_id = $user->id;
+        $organization->save(); // Eloquent save
+
+        // 2) Set user's role to "operator"
+        if (method_exists($user, 'syncRoles')) {
+            // Spatie laravel-permission
+            $user->syncRoles(['operator']);
+        } else {
+            // Fallback: simple 'role' column
+            $user->role = 'operator';
+            $user->save();
+        }
+
+        return response()->json([
+            'message' => 'Operator assigned.',
+            'organization_id' => $organization->id,
+            'operator_user_id' => $user->id,
+        ], 200);
+    }
+
+    public function index(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized.'], 401);
+        }
+
+        // Role check (Spatie or fallback "role" column)
+        $isOperator = false;
+        if (method_exists($user, 'hasRole')) {
+            $isOperator = $user->hasRole('operator');
+        } else {
+            $isOperator = ($user->role ?? null) === 'operator';
+        }
+
+        if (!$isOperator) {
+            // You can relax this if you want to allow *any* authenticated user
+            // who is set as operator_id on an org, but role check is usually safer.
+            // If you want to rely solely on operator_id matching, remove this block.
+            return response()->json(['message' => 'Forbidden. Only operators can access this endpoint.'], 403);
+        }
+
+        $orgId = $request->query('organization_id');
+
+        if ($orgId !== null) {
+            // Validate organization_id
+            if (!is_numeric($orgId)) {
+                return response()->json(['message' => 'Invalid organization_id.'], 422);
+            }
+
+            // Ensure this org is assigned to the operator (by operator_id)
+            $org = Organization::query()
+                ->select(['id', 'name'])
+                ->where('id', (int)$orgId)
+                ->where('operator_id', $user->id)
+                ->first();
+
+            if (!$org) {
+                return response()->json([
+                    'message' => 'Organization not found or not assigned to this operator.'
+                ], 404);
+            }
+
+            $departments = Department::query()
+                ->select(['id', 'name', 'organization_id'])
+                ->where('organization_id', $org->id)
+                ->orderBy('name')
+                ->get();
+
+            return response()->json([
+                'organization' => [
+                    'id'   => $org->id,
+                    'name' => $org->name,
+                ],
+                'departments' => $departments,
+            ], 200);
+        }
+
+        // No orgId provided → return all orgs assigned to this operator, with departments eager-loaded.
+        $orgs = Organization::query()
+            ->select(['id', 'name'])
+            ->where('operator_id', $user->id)
+            ->with(['departments' => function ($q) {
+                $q->select(['id', 'name', 'organization_id'])->orderBy('name');
+            }])
+            ->orderBy('name')
+            ->get();
+
+        if ($orgs->isEmpty()) {
+            return response()->json([
+                'message' => 'No organizations assigned to this operator.'
+            ], 404);
+        }
+
+        $payload = $orgs->map(function (Organization $org) {
+            return [
+                'id'          => $org->id,
+                'name'        => $org->name,
+                'departments' => $org->departments,
+            ];
+        })->values();
+
+        return response()->json([
+            'organizations' => $payload
+        ], 200);
+    }
+
 }

@@ -7,6 +7,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  Image,
 } from 'react-native';
 import { Text, Card, ActivityIndicator, Button } from 'react-native-paper';
 import axios from 'axios';
@@ -155,7 +157,29 @@ export default function DeptAdminDashboard() {
           {item.user && <Text>User: {item.user.name}</Text>}
           {item.assignee && <Text>Assignee: {item.assignee.name}</Text>}
           {item.department && <Text>Department: {item.department.name}</Text>}
-          {item.photos?.length ? <Text>Photos: {item.photos.length} attached</Text> : null}
+
+          {/* Photos gallery */}
+          {item.photos?.length ? (
+            <>
+              <View style={{ height: 8 }} />
+              <Text>Photos:</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.photoStrip}
+                contentContainerStyle={styles.photoStripContent}
+              >
+                {item.photos.map((p) => (
+                  <Image
+                    key={p.id}
+                    source={{ uri: p.url }}
+                    style={styles.photoThumb}
+                    resizeMode="cover"
+                  />
+                ))}
+              </ScrollView>
+            </>
+          ) : null}
 
           <View style={{ height: 12 }} />
 
@@ -197,4 +221,14 @@ const styles = StyleSheet.create({
   card: { marginBottom: 12 },
   noDataText: { textAlign: 'center', marginTop: 20, color: '#666' },
   hint: { marginTop: 8, color: '#888' },
+
+  // photos
+  photoStrip: { marginTop: 8 },
+  photoStripContent: { gap: 8 },
+  photoThumb: {
+    width: 96,
+    height: 96,
+    borderRadius: 8,
+    backgroundColor: '#E5E7EB',
+  },
 });

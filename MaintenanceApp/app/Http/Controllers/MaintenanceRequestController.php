@@ -15,27 +15,16 @@ class MaintenanceRequestController extends Controller
 public function store(Request $request)
 {
     $validated = $request->validate([
-        'department_id' => 'required|exists:departments,id',
+        // 'department_id' => removed it will be filled in the operator side 
         'title' => 'required|string|max:255',
         'description' => 'nullable|string',
         'status' => 'required|in:new,declined,pending,in-progress,done,trashed',
         'photos.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
     ]);
 
-    $userId = Auth::id();
-
-    $isMember = DepartmentUser::where('user_id', $userId)
-        ->where('department_id', $validated['department_id'])
-        ->exists();
-
-    if (!$isMember) {
-        return response()->json([
-            'message' => 'You are not a member of this department.',
-        ], 403);
-    }
-
-    $validated['user_id'] = $userId;
+    $validated['user_id'] = Auth::id();
     $validated['assigned_to'] = null;
+    $validated['department_id'] = null; 
 
     $maintenanceRequest = MaintenanceRequest::create($validated);
 
@@ -51,10 +40,11 @@ public function store(Request $request)
     }
 
     return response()->json([
-        'message' => 'Maintenance request with photos created successfully.',
-        'data' => $maintenanceRequest->load('photos'),
+        'message' => 'Created',
+        'id' => $maintenanceRequest->id,
     ], 201);
-}    
+}
+  
 
 
 
@@ -89,6 +79,44 @@ public function store(Request $request)
     ], 200);
     }
     }
+
+public function FetchAllRequestsforOperator()
+{
+    // Fetch ALL maintenance requests that are "new" (no admin/department checks)
+    $requests = MaintenanceRequest::with(['user', 'department', 'assignee', 'photos'])
+        ->where('status', 'new')
+        ->get();
+
+    return response()->json([
+        'data' => $requests
+    ], 200);
+}
+
+public function assignDepartment(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'department_id' => 'required|integer|exists:departments,id',
+        ]);
+
+        $mr = MaintenanceRequest::findOrFail($id);
+        $dept = Department::findOrFail($validated['department_id']);
+
+        // Optional integrity check: ensure department belongs to same org
+        if (property_exists($mr, 'organization_id') && $mr->organization_id !== $dept->organization_id) {
+            return response()->json([
+                'message' => 'Department does not belong to the same organization as the request.'
+            ], 422);
+        }
+        $mr->department_id = $dept->id;
+        $mr->save();
+
+        return response()->json([
+            'message' => 'Assigned successfully.',
+            'data' => $mr->load(['department'])
+        ], 200);
+    }
+
+
 
 public function FetchAllRequests()
 {

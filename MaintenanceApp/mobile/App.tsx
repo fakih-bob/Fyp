@@ -36,6 +36,7 @@ type RootStackParamList = {
   DeptAdminDashboard: undefined; // this mounts your tab navigator
   AssignMaintenance: { requestId: number; departmentId?: number };
   CreateMaintenanceRequest: undefined;
+  operatorDashboard:undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -58,6 +59,7 @@ export default function App() {
             {/* Your tab navigator is mounted under this stack route */}
             <Stack.Screen name="DeptAdminDashboard" component={BottomTabNavigator} />
              <Stack.Screen name="MaintenanceDashboard" component={BottomTabNavigator} />
+             <Stack.Screen name="operatorDashboard" component={BottomTabNavigator} />
 
             {/* Push-to Assign screen */}
             <Stack.Screen

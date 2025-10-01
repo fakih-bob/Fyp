@@ -13,6 +13,7 @@ class Organization extends Model
         'name',
         'description',
         'owner_id',
+        'operator_id',
         'url'
     ];
 

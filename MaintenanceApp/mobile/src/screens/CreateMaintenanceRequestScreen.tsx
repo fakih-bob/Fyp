@@ -15,7 +15,6 @@ import {
   Button,
   Text,
   Surface,
-  Chip,
   ActivityIndicator,
   useTheme,
 } from 'react-native-paper';
@@ -26,12 +25,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MaterialIcons } from '@expo/vector-icons';
-
-type Department = {
-  id: number;
-  name: string;
-  description?: string;
-};
 
 type RootStackParamList = {
   HomeScreen: undefined;
@@ -51,18 +44,14 @@ const CreateMaintenanceRequestScreen: React.FC = () => {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [departmentId, setDepartmentId] = useState<number | null>(null);
-  const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedImages, setSelectedImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [departmentsLoading, setDepartmentsLoading] = useState(true);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(50));
 
   useEffect(() => {
     (async () => {
       await ensureMediaPermissions();
-      await fetchDepartments();
     })();
 
     Animated.parallel([
@@ -88,27 +77,6 @@ const CreateMaintenanceRequestScreen: React.FC = () => {
         'Permission required',
         'Please allow photo library access to pick images.'
       );
-    }
-  };
-
-  const fetchDepartments = async () => {
-    setDepartmentsLoading(true);
-    try {
-      const token = await AsyncStorage.getItem('token');
-      const res = await axios.get(`${API_BASE}/AllMyDepartments`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const list: Department[] = res.data?.data ?? res.data ?? [];
-      setDepartments(list);
-      if (!departmentId && list.length > 0) {
-        setDepartmentId(list[0].id);
-      }
-    } catch (error) {
-      console.error('Error fetching departments:', error);
-      Alert.alert('Error', 'Failed to load departments.');
-      setDepartments([]);
-    } finally {
-      setDepartmentsLoading(false);
     }
   };
 
@@ -138,10 +106,6 @@ const CreateMaintenanceRequestScreen: React.FC = () => {
   };
 
   const validateForm = () => {
-    if (!departmentId) {
-      Alert.alert('Validation Error', 'Please select a department.');
-      return false;
-    }
     if (selectedImages.length < 1) {
       Alert.alert('Validation Error', 'Please add at least one photo.');
       return false;
@@ -166,10 +130,7 @@ const CreateMaintenanceRequestScreen: React.FC = () => {
       const token = await AsyncStorage.getItem('token');
       const formData = new FormData();
 
-      // Required: department_id
-      formData.append('department_id', String(departmentId));
-
-      // Optional (backend defaults status=new if omitted in your controller; include explicitly if you want)
+      // Let the request be created without department; operator will assign later.
       formData.append('status', 'new');
 
       if (title.trim()) formData.append('title', title.trim());
@@ -213,15 +174,6 @@ const CreateMaintenanceRequestScreen: React.FC = () => {
     }
   };
 
-  if (departmentsLoading) {
-    return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" />
-        <Text style={{ marginTop: 16 }}>Loading departments...</Text>
-      </View>
-    );
-  }
-
   return (
     <LinearGradient
       colors={[theme.colors.primary, theme.colors.tertiary]}
@@ -256,7 +208,7 @@ const CreateMaintenanceRequestScreen: React.FC = () => {
               New Maintenance Request
             </Text>
             <Text style={[styles.subtitle, { color: theme.colors.primaryContainer }]}>
-              Upload photos and pick a department
+              Upload photos and details
             </Text>
           </Animated.View>
 
@@ -296,47 +248,6 @@ const CreateMaintenanceRequestScreen: React.FC = () => {
                   outlineColor={theme.colors.outline}
                   activeOutlineColor={theme.colors.primary}
                 />
-
-                <View style={styles.departmentSection}>
-                  <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
-                    Select Department (required)
-                  </Text>
-                  <View style={styles.departmentList}>
-                    {departments.length === 0 ? (
-                      <View style={{ gap: 8 }}>
-                        <Text>No departments found.</Text>
-                        <Button mode="outlined" onPress={fetchDepartments}>
-                          Refresh
-                        </Button>
-                      </View>
-                    ) : (
-                      departments.map((dept) => (
-                        <Chip
-                          key={dept.id}
-                          selected={departmentId === dept.id}
-                          onPress={() => setDepartmentId(dept.id)}
-                          style={[
-                            styles.departmentChip,
-                            {
-                              backgroundColor:
-                                departmentId === dept.id
-                                  ? theme.colors.primary
-                                  : theme.colors.surfaceVariant,
-                            },
-                          ]}
-                          textStyle={{
-                            color:
-                              departmentId === dept.id
-                                ? theme.colors.onPrimary
-                                : theme.colors.onSurfaceVariant,
-                          }}
-                        >
-                          {dept.name}
-                        </Chip>
-                      ))
-                    )}
-                  </View>
-                </View>
 
                 <View style={styles.photoSection}>
                   <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
@@ -379,7 +290,7 @@ const CreateMaintenanceRequestScreen: React.FC = () => {
                   mode="contained"
                   onPress={handleSubmit}
                   loading={loading}
-                  disabled={loading || !departmentId || selectedImages.length < 1}
+                  disabled={loading || selectedImages.length < 1}
                   style={styles.submitButton}
                   contentStyle={styles.buttonContent}
                   labelStyle={styles.buttonLabel}
@@ -427,9 +338,6 @@ const styles = StyleSheet.create({
   cardContent: { padding: 32 },
   input: { marginBottom: 20, backgroundColor: 'transparent' },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
-  departmentSection: { marginBottom: 24 },
-  departmentList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  departmentChip: { marginRight: 8, marginBottom: 8 },
   photoSection: { marginBottom: 24 },
   photoButton: { marginBottom: 16, borderRadius: 12 },
   imagePreviewContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },

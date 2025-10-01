@@ -1,5 +1,5 @@
 // src/screens/OwnerOrganizationsScreen.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   FlatList,
@@ -11,29 +11,47 @@ import {
   StatusBar,
   Dimensions,
   Image,
+  TouchableOpacity,
 } from 'react-native';
 import {
-  Card,
   Text,
   Button,
   FAB,
   Surface,
   IconButton,
+  Portal,
+  Dialog,
+  ActivityIndicator,
+  List,
+  Avatar,
+  Divider,
+  Searchbar,
+  Chip,
 } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useNavigation, NavigationProp } from '@react-navigation/native';
-import { initNotificationCenter } from '../NotificationCenter'; // keep notifications ready
+import { initNotificationCenter } from '../NotificationCenter';
 
 type Organization = {
   id: number;
   name: string;
   description?: string;
-  url?: string;                 // <- image URL (logo/avatar)
+  url?: string;                 // image URL (logo/avatar)
   departments_count?: number;
   users_count?: number;
+  operator_id?: number | null;  // optional if backend returns it
+};
+
+type User = {
+  id: number;
+  name: string;
+  email: string;
+  phone_number?: string;
+  role?: string;
+  avatar_url?: string;
 };
 
 type RootStackParamList = {
@@ -56,8 +74,19 @@ export default function OwnerOrganizationsScreen() {
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(50));
 
+  // Assign-operator dialog state
+  const [assignDialogVisible, setAssignDialogVisible] = useState(false);
+  const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
+
+  // Users (list) state
+  const [orgUsers, setOrgUsers] = useState<User[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserLabel, setSelectedUserLabel] = useState<string>('');
+  const [assigning, setAssigning] = useState(false);
+
   useEffect(() => {
-    // Ensure local notifications are ready on the owner device
     initNotificationCenter();
   }, []);
 
@@ -157,6 +186,154 @@ export default function OwnerOrganizationsScreen() {
     }
   };
 
+  /** -------- Users fetch for list (per organization) -------- */
+  const fetchUsersOfOrganization = async (organizationId: number) => {
+    try {
+      setLoadingUsers(true);
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        Alert.alert('Error', 'Authentication token not found. Please login again.');
+        setOrgUsers([]);
+        return;
+      }
+
+      const response = await axios.get(`${API_BASE}/getUsersOfOrganization/${organizationId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      });
+
+      // Normalize payload variants
+      let usersData: any[] = [];
+      if (Array.isArray(response.data)) {
+        usersData = response.data;
+      } else if (Array.isArray(response.data?.users)) {
+        usersData = response.data.users;
+      } else if (Array.isArray(response.data?.data)) {
+        usersData = response.data.data;
+      }
+
+      // Some APIs return nested objects { user: {...} }
+      const normalized: User[] = usersData.map((u: any) => (u?.user ? u.user : u));
+
+      setOrgUsers(normalized);
+    } catch (error: any) {
+      console.log('Fetch users error:', error?.response?.data || error?.message);
+      Alert.alert('Error', 'Failed to load users for this organization');
+      setOrgUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  /** -------- Assign Operator Flow with list -------- */
+  const openAssignDialog = async (org: Organization) => {
+    setSelectedOrg(org);
+    setSelectedUserId(null);
+    setSelectedUserLabel('');
+    setUserSearch('');
+    setAssignDialogVisible(true);
+    await fetchUsersOfOrganization(org.id);
+  };
+
+  const closeAssignDialog = () => {
+    setAssignDialogVisible(false);
+    setSelectedOrg(null);
+    setSelectedUserId(null);
+    setSelectedUserLabel('');
+    setUserSearch('');
+    setAssigning(false);
+    setOrgUsers([]);
+  };
+
+  const handleAssignOperator = async () => {
+    if (!selectedOrg) return;
+    if (!selectedUserId) {
+      Alert.alert('Missing selection', 'Please choose a user from the list.');
+      return;
+    }
+
+    try {
+      setAssigning(true);
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        Alert.alert('Error', 'Please login again');
+        setAssigning(false);
+        return;
+      }
+
+      await axios.post(
+        `${API_BASE}/organizations/${selectedOrg.id}/assign-operator`,
+        { user_id: selectedUserId },
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+      );
+
+      Alert.alert(
+        'Success',
+        `Operator assigned to "${selectedOrg.name}"${selectedUserLabel ? ` (${selectedUserLabel})` : ''}.`
+      );
+      fetchOrganizations(); // in case anything changes server-side
+      closeAssignDialog();
+    } catch (e: any) {
+      console.log('Assign operator error:', e?.response?.data || e?.message || e);
+      const msg =
+        e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        e?.message ||
+        'Failed to assign operator';
+      Alert.alert('Error', String(msg));
+      setAssigning(false);
+    }
+  };
+
+  const filteredUsers = useMemo(() => {
+    const q = userSearch.trim().toLowerCase();
+    if (!q) return orgUsers;
+    return orgUsers.filter(
+      (u) =>
+        (u.name && u.name.toLowerCase().includes(q)) ||
+        (u.email && u.email.toLowerCase().includes(q)) ||
+        (u.phone_number && u.phone_number.toLowerCase().includes(q))
+    );
+  }, [orgUsers, userSearch]);
+
+  const getInitials = (name?: string) => {
+    if (!name) return 'U';
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length === 1) return parts[0][0]?.toUpperCase() ?? 'U';
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  const renderUserItem = ({ item }: { item: User }) => {
+    const selected = selectedUserId === item.id;
+
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          setSelectedUserId(item.id);
+          setSelectedUserLabel(item.name ?? '');
+        }}
+        style={[
+          styles.userRow,
+          selected && { backgroundColor: 'rgba(16,185,129,0.08)', borderColor: '#10B981' },
+        ]}
+      >
+        {item.avatar_url ? (
+          <Avatar.Image size={36} source={{ uri: item.avatar_url }} />
+        ) : (
+          <Avatar.Text size={36} label={getInitials(item.name)} />
+        )}
+        <View style={{ flex: 1, marginLeft: 10 }}>
+          <Text style={styles.userName}>{item.name || 'Unnamed user'}</Text>
+          <Text style={styles.userEmail}>{item.email || 'no-email'}</Text>
+        </View>
+        {selected ? <MaterialIcons name="check-circle" size={22} color="#10B981" /> : null}
+      </TouchableOpacity>
+    );
+  };
+
   const renderOrganization = ({ item }: { item: Organization }) => (
     <Animated.View
       style={{
@@ -171,7 +348,6 @@ export default function OwnerOrganizationsScreen() {
         >
           <View style={styles.cardHeader}>
             <View style={styles.iconWrap}>
-              {/* If we have an image URL, show the mini picture; otherwise show fallback gradient+icon */}
               {item.url ? (
                 <Image source={{ uri: item.url }} style={styles.orgIconImage} resizeMode="cover" />
               ) : (
@@ -211,6 +387,27 @@ export default function OwnerOrganizationsScreen() {
             >
               Departments
             </Button>
+
+            <Button
+              mode="outlined"
+              icon="account-plus"
+              onPress={() => openAssignDialog(item)}
+              style={styles.actionBtn}
+            >
+              Assign Operator
+            </Button>
+          </View>
+
+          {/* Optional chip to show current operator if you have it */}
+          {!!item.operator_id && (
+            <View style={{ marginTop: 10 }}>
+              <Chip icon="account" compact>
+                Current operator ID: {item.operator_id}
+              </Chip>
+            </View>
+          )}
+
+          <View style={[styles.actionsRow, { marginTop: 8 }]}>
             <Button
               mode="outlined"
               icon="edit"
@@ -265,9 +462,7 @@ export default function OwnerOrganizationsScreen() {
               transform: [{ translateY: slideAnim }],
               marginBottom: 16,
             }}
-          >
-            {/* Optional: add stats header here if you want */}
-          </Animated.View>
+          />
         )}
 
         {loading ? (
@@ -307,6 +502,103 @@ export default function OwnerOrganizationsScreen() {
         color="white"
         customSize={56}
       />
+
+      {/* Assign Operator Dialog with searchable list */}
+      <Portal>
+        <Dialog visible={assignDialogVisible} onDismiss={closeAssignDialog} style={{ borderRadius: 16 }}>
+          <Dialog.Title>Assign Operator</Dialog.Title>
+          <Dialog.Content>
+            <Text style={{ marginBottom: 6 }}>
+              {selectedOrg ? `Organization: ${selectedOrg.name}` : ''}
+            </Text>
+
+            {/* Search */}
+            <Searchbar
+              placeholder="Search users by name, email, phone…"
+              value={userSearch}
+              onChangeText={setUserSearch}
+              style={{ marginTop: 8, borderRadius: 10 }}
+              inputStyle={{ fontSize: 14 }}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            {/* User list */}
+            <View style={{ maxHeight: 320, marginTop: 10 }}>
+              {loadingUsers ? (
+                <View style={{ padding: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <ActivityIndicator />
+                  <Text>Loading users…</Text>
+                </View>
+              ) : filteredUsers.length === 0 ? (
+                <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                  <Text>No users found for this organization.</Text>
+                  <Button
+                    style={{ marginTop: 6 }}
+                    icon="refresh"
+                    onPress={async () => {
+                      if (selectedOrg) await fetchUsersOfOrganization(selectedOrg.id);
+                    }}
+                  >
+                    Refresh
+                  </Button>
+                </View>
+              ) : (
+                <>
+                  <FlatList
+                    data={filteredUsers}
+                    keyExtractor={(u) => String(u.id)}
+                    renderItem={renderUserItem}
+                    ItemSeparatorComponent={() => <Divider />}
+                    keyboardShouldPersistTaps="handled"
+                  />
+                  <View style={{ marginTop: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {!!selectedUserId && (
+                      <Chip
+                        icon="account"
+                        onClose={() => {
+                          setSelectedUserId(null);
+                          setSelectedUserLabel('');
+                        }}
+                      >
+                        Selected: {selectedUserLabel || selectedUserId}
+                      </Chip>
+                    )}
+                    <Chip
+                      icon="refresh"
+                      onPress={async () => {
+                        if (selectedOrg) await fetchUsersOfOrganization(selectedOrg.id);
+                      }}
+                      mode="outlined"
+                    >
+                      Refresh users
+                    </Chip>
+                  </View>
+                </>
+              )}
+            </View>
+          </Dialog.Content>
+
+          <Dialog.Actions>
+            <Button onPress={closeAssignDialog}>Cancel</Button>
+            <Button
+              mode="contained"
+              onPress={handleAssignOperator}
+              disabled={assigning || !selectedUserId}
+              style={{ marginLeft: 8 }}
+            >
+              {assigning ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <ActivityIndicator animating size="small" />
+                  <Text>Assigning…</Text>
+                </View>
+              ) : (
+                'Assign'
+              )}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </View>
   );
 }
@@ -327,14 +619,12 @@ const styles = StyleSheet.create({
 
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
   iconWrap: { marginRight: 12 },
-  // image icon style (from org.url)
   orgIconImage: {
     width: 48,
     height: 48,
     borderRadius: 24,
     backgroundColor: '#eee',
   },
-  // fallback gradient icon style
   iconGradient: {
     width: 48,
     height: 48,
@@ -384,5 +674,26 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+
+  // User list
+  userRow: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    marginHorizontal: 2,
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  userEmail: {
+    fontSize: 12,
+    color: '#6B7280',
   },
 });

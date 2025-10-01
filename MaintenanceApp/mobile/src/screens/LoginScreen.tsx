@@ -27,6 +27,7 @@ type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   HomeScreen: undefined;
+  operatorDashboard:undefined;
   ownerdashboard: undefined;
   DeptAdminDashboard: undefined;
   MaintenanceDashboard: undefined;
@@ -113,6 +114,9 @@ const LoginScreen: React.FC = () => {
           break;
         case 'user':
           navigation.replace('HomeScreen');
+          break;
+        case 'operator':
+          navigation.replace('operatorDashboard');
           break;
         default:
           Alert.alert('Error', 'Unknown user role');

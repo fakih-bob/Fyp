@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('description')->nullable();
             $table->string('url')->nullable();
             $table->foreignId('owner_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->foreignId('operator_id')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
         });
     }

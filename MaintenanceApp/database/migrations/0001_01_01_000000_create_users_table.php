@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('email')->unique();
             $table->string('phone_number', 20)->nullable();
-            $table->enum('role', ['user', 'owner', 'dept_admin', 'maintenance'])->default('user');
+            $table->enum('role', ['user', 'owner', 'dept_admin', 'maintenance','operator'])->default('user');
             $table->string('password');
             $table->boolean('is_restricted')->default(false)->index();
             $table->rememberToken();

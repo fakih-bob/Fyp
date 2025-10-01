@@ -149,3 +149,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
     Route::post('/demo/action', [NotificationController::class, 'demoAction']);        // trigger push+save
 });
+
+
+Route::middleware('auth:sanctum')->post('/organizations/{organization}/assign-operator', [OrganizationController::class, 'assignOperator']);
+
+Route::middleware('auth:sanctum')->post('/GetAllMaintenanceRequestForOperator', [MaintenanceRequestController::class, 'FetchAllRequestsForOperator']);
+
+Route::middleware('auth:sanctum')->patch('/maintenance-requests/{id}/assign-department', [MaintenanceRequestController::class, 'assignDepartment']);
+
+Route::middleware('auth:sanctum')->get('/operator/departments', [OrganizationController::class, 'index']);

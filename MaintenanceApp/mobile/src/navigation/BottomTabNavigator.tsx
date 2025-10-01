@@ -16,6 +16,7 @@ import OwnerOrganizationsScreen from '../../src/screens/OwnerDashboard';
 import OrganizationRequestsScreen from '../../src/screens/JoinOrganizationRequest';
 import DeptAdminDashboard from '../../src/screens/DeptAdminDashboard';
 import MyAssignedRequestsScreen from '../../src/screens/MaintenanceDashboard';
+import OperatorDashboard from '../../src/screens/OperatorDashboard';
 
 export type BottomTabParamList = {
   Home: undefined;
@@ -53,10 +54,7 @@ const AnimatedTabIcon = React.memo(({
     });
     
     animation.start();
-    
-    return () => {
-      animation.stop();
-    };
+    return () => { animation.stop(); };
   }, [focused, scaleValue]);
 
   return (
@@ -71,11 +69,7 @@ const AnimatedTabIcon = React.memo(({
           elevation: focused ? 3 : 0,
         }}
       >
-        <MaterialIcons 
-          name={iconName as any} 
-          size={size} 
-          color={color}
-        />
+        <MaterialIcons name={iconName as any} size={size} color={color} />
       </Animated.View>
       {badgeCount && badgeCount > 0 && (
         <Badge
@@ -105,6 +99,7 @@ const CustomHeader = React.memo(({ title, role }: { title: string; role: string 
       case 'owner': return theme.colors.ownerGold;
       case 'dept_admin': return theme.colors.adminBlue;
       case 'maintenance': return theme.colors.maintenanceTeal;
+      case 'operator': return theme.colors.primary; // uses primary; change if you add theme.colors.operator
       case 'user': return theme.colors.userIndigo;
       default: return theme.colors.primary;
     }
@@ -115,6 +110,7 @@ const CustomHeader = React.memo(({ title, role }: { title: string; role: string 
       case 'owner': return 'business';
       case 'dept_admin': return 'admin-panel-settings';
       case 'maintenance': return 'build';
+      case 'operator': return 'support-agent';
       case 'user': return 'person';
       default: return 'dashboard';
     }
@@ -135,30 +131,12 @@ const CustomHeader = React.memo(({ title, role }: { title: string; role: string 
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
-      <View style={{ 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        flex: 1,
-        gap: 12 
-      }}>
-        <View style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.2)',
-          borderRadius: 12,
-          padding: 8,
-        }}>
-          <MaterialIcons 
-            name={getRoleIcon(role)} 
-            size={24} 
-            color="white" 
-          />
+      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 }}>
+        <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, padding: 8 }}>
+          <MaterialIcons name={getRoleIcon(role)} size={24} color="white" />
         </View>
         <View>
-          <Animated.Text style={{
-            fontSize: 20,
-            fontWeight: '700',
-            color: 'white',
-            letterSpacing: 0.5,
-          }}>
+          <Animated.Text style={{ fontSize: 20, fontWeight: '700', color: 'white', letterSpacing: 0.5 }}>
             {title}
           </Animated.Text>
         </View>
@@ -196,14 +174,13 @@ export default function BottomTabNavigator() {
       case 'owner': return theme.colors.ownerGold;
       case 'dept_admin': return theme.colors.adminBlue;
       case 'maintenance': return theme.colors.maintenanceTeal;
+      case 'operator': return theme.colors.primary; // uses primary; change if you add theme.colors.operator
       case 'user': return theme.colors.userIndigo;
       default: return theme.colors.primary;
     }
   };
 
-  if (loading) {
-    return null;
-  }
+  if (loading) return null;
 
   const roleColor = getRoleColor(role || '');
 
@@ -216,9 +193,12 @@ export default function BottomTabNavigator() {
 
           switch (route.name) {
             case 'Home':
-              iconName = role === 'owner' ? 'business' : 
-                        role === 'dept_admin' ? 'admin-panel-settings' :
-                        role === 'maintenance' ? 'build' : 'home';
+              iconName =
+                role === 'owner' ? 'business' :
+                role === 'dept_admin' ? 'admin-panel-settings' :
+                role === 'maintenance' ? 'build' :
+                role === 'operator' ? 'support-agent' :
+                'home';
               break;
             case 'MyRequests':
               iconName = 'assignment';
@@ -255,38 +235,29 @@ export default function BottomTabNavigator() {
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
           shadowColor: '#000',
-          shadowOffset: {
-            width: 0,
-            height: -4,
-          },
+          shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.1,
           shadowRadius: 12,
           elevation: 15,
           position: 'absolute',
         },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          letterSpacing: 0.3,
-          marginTop: 4,
-        },
-        tabBarItemStyle: {
-          paddingVertical: 8,
-        },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', letterSpacing: 0.3, marginTop: 4 },
+        tabBarItemStyle: { paddingVertical: 8 },
         header: ({ route }) => (
-          <CustomHeader 
+          <CustomHeader
             title={
-              route.name === 'Home' 
+              route.name === 'Home'
                 ? role === 'owner' ? 'Owner Dashboard'
-                  : role === 'dept_admin' ? 'Admin Dashboard'
-                  : role === 'maintenance' ? 'Maintenance Dashboard'
-                  : 'Home'
+                : role === 'dept_admin' ? 'Admin Dashboard'
+                : role === 'maintenance' ? 'Maintenance Dashboard'
+                : role === 'operator' ? 'Operator Dashboard'
+                : 'Home'
                 : route.name === 'MyRequests' ? 'My Requests'
                 : route.name === 'Notifications' ? 'Notifications'
                 : route.name === 'Profile' ? 'Profile'
                 : 'Dashboard'
-            } 
-            role={role || 'user'} 
+            }
+            role={role || 'user'}
           />
         ),
       })}
@@ -294,33 +265,25 @@ export default function BottomTabNavigator() {
       {/* Tabs for owner */}
       {role === 'owner' && (
         <>
-          <Tab.Screen 
-            name="Home" 
-            component={OwnerOrganizationsScreen} 
-            options={{ 
-              tabBarLabel: 'Organizations',
-            }} 
+          <Tab.Screen
+            name="Home"
+            component={OwnerOrganizationsScreen}
+            options={{ tabBarLabel: 'Organizations' }}
           />
-          <Tab.Screen 
-            name="MyRequests" 
-            component={OrganizationRequestsScreen} 
-            options={{ 
-              tabBarLabel: 'Requests',
-            }} 
+          <Tab.Screen
+            name="MyRequests"
+            component={OrganizationRequestsScreen}
+            options={{ tabBarLabel: 'Requests' }}
           />
-          <Tab.Screen 
-            name="Notifications" 
-            component={NotificationsScreen} 
-            options={{ 
-              tabBarLabel: 'Notifications',
-            }} 
+          <Tab.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{ tabBarLabel: 'Notifications' }}
           />
-          <Tab.Screen 
-            name="Profile" 
-            component={ProfileScreen} 
-            options={{ 
-              tabBarLabel: 'Profile',
-            }} 
+          <Tab.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={{ tabBarLabel: 'Profile' }}
           />
         </>
       )}
@@ -328,26 +291,20 @@ export default function BottomTabNavigator() {
       {/* Tabs for dept_admin */}
       {role === 'dept_admin' && (
         <>
-          <Tab.Screen 
-            name="Home" 
-            component={DeptAdminDashboard} 
-            options={{ 
-              tabBarLabel: 'Dashboard',
-            }} 
+          <Tab.Screen
+            name="Home"
+            component={DeptAdminDashboard}
+            options={{ tabBarLabel: 'Dashboard' }}
           />
-          <Tab.Screen 
-            name="Notifications" 
-            component={NotificationsScreen} 
-            options={{ 
-              tabBarLabel: 'Notifications',
-            }} 
+          <Tab.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{ tabBarLabel: 'Notifications' }}
           />
-          <Tab.Screen 
-            name="Profile" 
-            component={ProfileScreen} 
-            options={{ 
-              tabBarLabel: 'Profile',
-            }} 
+          <Tab.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={{ tabBarLabel: 'Profile' }}
           />
         </>
       )}
@@ -355,26 +312,41 @@ export default function BottomTabNavigator() {
       {/* Tabs for maintenance */}
       {role === 'maintenance' && (
         <>
-          <Tab.Screen 
-            name="Home" 
-            component={MyAssignedRequestsScreen} 
-            options={{ 
-              tabBarLabel: 'My Tasks',
-            }} 
+          <Tab.Screen
+            name="Home"
+            component={MyAssignedRequestsScreen}
+            options={{ tabBarLabel: 'My Tasks' }}
           />
-          <Tab.Screen 
-            name="Notifications" 
-            component={NotificationsScreen} 
-            options={{ 
-              tabBarLabel: 'Notifications',
-            }} 
+          <Tab.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{ tabBarLabel: 'Notifications' }}
           />
-          <Tab.Screen 
-            name="Profile" 
-            component={ProfileScreen} 
-            options={{ 
-              tabBarLabel: 'Profile',
-            }} 
+          <Tab.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={{ tabBarLabel: 'Profile' }}
+          />
+        </>
+      )}
+
+      {/* Tabs for operator (Home + Profile only) */}
+      {role === 'operator' && (
+        <>
+          <Tab.Screen
+            name="Home"
+            component={OperatorDashboard} // change to your Operator dashboard if needed
+            options={{ tabBarLabel: 'Dashboard' }}
+          />
+          <Tab.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{ tabBarLabel: 'Notifications' }}
+          />
+          <Tab.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={{ tabBarLabel: 'Profile' }}
           />
         </>
       )}
@@ -382,33 +354,25 @@ export default function BottomTabNavigator() {
       {/* Tabs for normal user */}
       {role === 'user' && (
         <>
-          <Tab.Screen 
-            name="Home" 
-            component={HomeScreen} 
-            options={{ 
-              tabBarLabel: 'Organizations',
-            }} 
+          <Tab.Screen
+            name="Home"
+            component={HomeScreen}
+            options={{ tabBarLabel: 'Organizations' }}
           />
-          <Tab.Screen 
-            name="MyRequests" 
-            component={MyRequestsScreen} 
-            options={{ 
-              tabBarLabel: 'My Requests',
-            }} 
+          <Tab.Screen
+            name="MyRequests"
+            component={MyRequestsScreen}
+            options={{ tabBarLabel: 'My Requests' }}
           />
-          <Tab.Screen 
-            name="Notifications" 
-            component={NotificationsScreen} 
-            options={{ 
-              tabBarLabel: 'Notifications',
-            }} 
+          <Tab.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{ tabBarLabel: 'Notifications' }}
           />
-          <Tab.Screen 
-            name="Profile" 
-            component={ProfileScreen} 
-            options={{ 
-              tabBarLabel: 'Profile',
-            }} 
+          <Tab.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={{ tabBarLabel: 'Profile' }}
           />
         </>
       )}
