@@ -144,12 +144,13 @@ Route::middleware('admin.token')->group(function () {
 
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/devices', [NotificationController::class, 'saveDevice']);            // store FCM token
-    Route::get('/notifications', [NotificationController::class, 'index']);            // list DB notifications
-    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
-    Route::post('/demo/action', [NotificationController::class, 'demoAction']);        // trigger push+save
+    Route::post('/devices', [NotificationController::class, 'saveDevice']);                    // store FCM token
+    Route::get('/notifications', [NotificationController::class, 'index']);                    // list DB notifications
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']); // get unread count
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);      // mark single as read
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead']); // mark all as read
+    Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);          // delete notification
 });
-
 
 Route::middleware('auth:sanctum')->post('/organizations/{organization}/assign-operator', [OrganizationController::class, 'assignOperator']);
 

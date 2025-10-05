@@ -5,6 +5,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { View, Animated, Easing, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { useNavigation } from '@react-navigation/native';
 import { theme as customTheme } from '../theme/theme';
 
 // Import screens
@@ -71,19 +73,23 @@ const AnimatedTabIcon = React.memo(({
       >
         <MaterialIcons name={iconName as any} size={size} color={color} />
       </Animated.View>
-      {badgeCount && badgeCount > 0 && (
+      {badgeCount !== undefined && badgeCount > 0 && (
         <Badge
           style={{
             position: 'absolute',
-            top: -4,
-            right: -8,
+            top: -5,
+            right: -10,
             backgroundColor: '#DC2626',
-            fontSize: 10,
-            fontWeight: '600',
+            fontSize: 9,
+            fontWeight: '700',
+            minWidth: 18,
+            height: 18,
+            borderRadius: 9,
+            borderWidth: 2,
+            borderColor: '#fff',
           }}
-          size={18}
         >
-          {badgeCount > 99 ? '99+' : badgeCount.toString()}
+          {badgeCount > 99 ? '99+' : badgeCount}
         </Badge>
       )}
     </View>
@@ -118,25 +124,47 @@ const CustomHeader = React.memo(({ title, role }: { title: string; role: string 
 
   return (
     <LinearGradient
-      colors={[getRoleColor(role), `${getRoleColor(role)}80`]}
+      colors={[getRoleColor(role), `${getRoleColor(role)}95`]}
       style={{
         height: Platform.OS === 'ios' ? 90 : 70,
-        paddingTop: Platform.OS === 'ios' ? 45 : 25,
+        paddingTop: Platform.OS === 'ios' ? 45 : 20,
         paddingHorizontal: 20,
+        paddingBottom: 12,
         flexDirection: 'row',
         alignItems: 'center',
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+        borderBottomWidth: 0,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 4,
       }}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 }}>
-        <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, padding: 8 }}>
+        <View style={{ 
+          backgroundColor: 'rgba(255, 255, 255, 0.25)', 
+          borderRadius: 12, 
+          padding: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
+          elevation: 2,
+        }}>
           <MaterialIcons name={getRoleIcon(role)} size={24} color="white" />
         </View>
         <View>
-          <Animated.Text style={{ fontSize: 20, fontWeight: '700', color: 'white', letterSpacing: 0.5 }}>
+          <Animated.Text style={{ 
+            fontSize: 20, 
+            fontWeight: '700', 
+            color: 'white', 
+            letterSpacing: 0.5,
+            textShadowColor: 'rgba(0, 0, 0, 0.1)',
+            textShadowOffset: { width: 0, height: 1 },
+            textShadowRadius: 2,
+          }}>
             {title}
           </Animated.Text>
         </View>
@@ -147,9 +175,10 @@ const CustomHeader = React.memo(({ title, role }: { title: string; role: string 
 
 export default function BottomTabNavigator() {
   const theme = customTheme;
+  const navigation = useNavigation();
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notificationCount, setNotificationCount] = useState(3); // Mock notification count
+  const [notificationCount, setNotificationCount] = useState(0);
 
   useEffect(() => {
     const fetchRole = async () => {
@@ -167,7 +196,44 @@ export default function BottomTabNavigator() {
       setLoading(false);
     };
     fetchRole();
+    fetchUnreadCount(); // Initial fetch
   }, []);
+
+  // Fetch unread notification count
+  const fetchUnreadCount = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return;
+
+      const response = await axios.get('http://10.0.2.2:8000/api/notifications/unread-count', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 5000,
+      });
+
+      setNotificationCount(response.data?.unread_count || 0);
+    } catch (error) {
+      // Silently fail - don't show errors for badge count
+      setNotificationCount(0);
+    }
+  };
+
+  // Refresh notification count every 30 seconds and on navigation state change
+  useEffect(() => {
+    const interval = setInterval(fetchUnreadCount, 30000); // Refresh every 30 seconds
+    
+    // Also refresh when navigation state changes
+    const unsubscribe = navigation.addListener('state', () => {
+      fetchUnreadCount();
+    });
+
+    return () => {
+      clearInterval(interval);
+      unsubscribe();
+    };
+  }, [navigation]);
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -227,7 +293,7 @@ export default function BottomTabNavigator() {
         tabBarActiveTintColor: roleColor,
         tabBarInactiveTintColor: theme.colors.slate,
         tabBarStyle: {
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          backgroundColor: '#ffffff',
           borderTopWidth: 0,
           paddingBottom: Platform.OS === 'ios' ? 20 : 10,
           paddingTop: 10,
@@ -235,14 +301,23 @@ export default function BottomTabNavigator() {
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 12,
-          elevation: 15,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
+          elevation: 12,
           position: 'absolute',
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', letterSpacing: 0.3, marginTop: 4 },
-        tabBarItemStyle: { paddingVertical: 8 },
+        tabBarLabelStyle: { 
+          fontSize: 11, 
+          fontWeight: '600', 
+          letterSpacing: 0.3, 
+          marginTop: 4,
+          fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+        },
+        tabBarItemStyle: { 
+          paddingVertical: 8,
+          paddingHorizontal: 4,
+        },
         header: ({ route }) => (
           <CustomHeader
             title={

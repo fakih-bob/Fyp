@@ -89,9 +89,8 @@ type OrganizationRequest = {
  * Change DEV_LAN to your computer's LAN IP when testing on a real device.
  * Android emulator keeps 10.0.2.2 by default.
  */
-const DEV_LAN = 'http://192.168.1.23:8000'; // ⬅️ CHANGE THIS for physical devices
-const EMU_ANDROID = 'http://10.0.2.2:8000';
-const API_BASE = Platform.OS === 'android' ? EMU_ANDROID : DEV_LAN;
+const API_BASE = 'http://10.0.2.2:8000'; // Android emulator
+// For physical device, use: 'http://YOUR_COMPUTER_IP:8000'
 
 const absolutize = (u?: string) => (!u ? u : u.startsWith('http') ? u : `${API_BASE}${u}`);
 
@@ -267,11 +266,12 @@ export default function MyRequestsScreen() {
       const t = await AsyncStorage.getItem('token');
       const response = await axios.get(`${API_BASE}/api/ShowAllMyRequests`, {
         headers: { Authorization: `Bearer ${t}` },
+        timeout: 15000, // 15 seconds timeout
       });
       setOrganizationRequests(response.data || []);
     } catch (error) {
-      console.error('Error fetching organization requests:', error);
       setOrganizationRequests([]);
+      // Silently fail or show user-friendly message only if needed
     }
   };
 
@@ -280,6 +280,7 @@ export default function MyRequestsScreen() {
       const t = await AsyncStorage.getItem('token');
       const res = await axios.get(`${API_BASE}/api/AllMyMaintenanceRequest`, {
         headers: { Authorization: `Bearer ${t}` },
+        timeout: 15000, // 15 seconds timeout
       });
 
       const raw: any[] = res?.data?.data ?? [];
@@ -301,8 +302,8 @@ export default function MyRequestsScreen() {
 
       setMaintenanceRequests(mapped);
     } catch (error) {
-      console.error('Error fetching maintenance requests:', error);
       setMaintenanceRequests([]);
+      // Silently fail or show user-friendly message only if needed
     }
   };
 
@@ -322,11 +323,11 @@ export default function MyRequestsScreen() {
             const t = await AsyncStorage.getItem('token');
             await axios.delete(`${API_BASE}/api/CancelMyRequest/${id}`, {
               headers: { Authorization: `Bearer ${t}` },
+              timeout: 10000, // 10 seconds timeout
             });
             Alert.alert('Success', 'Request canceled');
             fetchMyRequests();
           } catch (error) {
-            console.error('Cancel failed:', error);
             Alert.alert('Error', 'Failed to cancel request');
           } finally {
             setCancelingId(null);

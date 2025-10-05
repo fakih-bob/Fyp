@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Department;
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -157,6 +158,9 @@ public function getMyOrganization()
             $user->role = 'operator';
             $user->save();
         }
+
+        // Send notification to user
+        NotificationService::notifyAssignedAsOperator($user->id, $organization->name);
 
         return response()->json([
             'message' => 'Operator assigned.',

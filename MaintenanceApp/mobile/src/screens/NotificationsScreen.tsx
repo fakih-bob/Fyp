@@ -8,6 +8,7 @@ import {
   RefreshControl,
   StatusBar,
   Dimensions,
+  Alert,
 } from 'react-native';
 import {
   Text,
@@ -17,22 +18,25 @@ import {
   useTheme,
   Button,
   IconButton,
+  ActivityIndicator,
 } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme as customTheme } from '../theme/theme';
 
 const { width } = Dimensions.get('window');
+const API_BASE = 'http://10.0.2.2:8000/api';
 
 type Notification = {
   id: number;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
   read: boolean;
   created_at: string;
-  icon?: string;
+  user_id?: number;
 };
 
 export default function NotificationsScreen() {
@@ -40,6 +44,7 @@ export default function NotificationsScreen() {
   const isFocused = useIsFocused();
   
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
   // Animation values
@@ -73,49 +78,43 @@ export default function NotificationsScreen() {
     ]).start();
   };
 
-  const loadNotifications = () => {
-    // Mock notifications data
-    const mockNotifications: Notification[] = [
-      {
-        id: 1,
-        title: 'Maintenance Request Approved',
-        message: 'Your maintenance request for "Office AC repair" has been approved and assigned to John Smith.',
-        type: 'success',
-        read: false,
-        created_at: '2024-01-15T10:30:00Z',
-        icon: 'check-circle',
-      },
-      {
-        id: 2,
-        title: 'New Organization Request',
-        message: 'A new user has requested to join your organization "TechCorp Solutions".',
-        type: 'info',
-        read: false,
-        created_at: '2024-01-15T09:15:00Z',
-        icon: 'business',
-      },
-      {
-        id: 3,
-        title: 'Request Status Update',
-        message: 'Your maintenance request status has been updated to "In Progress".',
-        type: 'warning',
-        read: true,
-        created_at: '2024-01-14T16:45:00Z',
-        icon: 'update',
-      },
-      {
-        id: 4,
-        title: 'Welcome to MaintenanceApp!',
-        message: 'Welcome! You can now create maintenance requests and track their progress.',
-        type: 'info',
-        read: true,
-        created_at: '2024-01-14T14:20:00Z',
-        icon: 'celebration',
-      },
-    ];
+  const loadNotifications = async () => {
+    if (!refreshing) setLoading(true);
+    
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        Alert.alert('Error', 'Authentication token not found. Please login again.');
+        return;
+      }
 
-    setNotifications(mockNotifications);
-    setRefreshing(false);
+      const response = await axios.get(`${API_BASE}/notifications`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 10000,
+      });
+
+      const notificationsData = response.data?.data || [];
+      setNotifications(notificationsData);
+    } catch (error: any) {
+      console.error('Error loading notifications:', error?.response?.data || error?.message || error);
+      let message = 'Failed to load notifications';
+      
+      if (error?.code === 'ECONNABORTED') {
+        message = 'Request timeout. Please check your connection.';
+      } else if (!error?.response) {
+        message = 'Network error. Please check your connection.';
+      } else if (error?.response?.status === 401) {
+        message = 'Session expired. Please login again.';
+      }
+      
+      Alert.alert('Error', message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
   const onRefresh = () => {
@@ -123,40 +122,109 @@ export default function NotificationsScreen() {
     loadNotifications();
   };
 
-  const markAsRead = (id: number) => {
-    setNotifications(prev =>
-      prev.map(notif =>
-        notif.id === id ? { ...notif, read: true } : notif
-      )
-    );
-  };
+  const markAsRead = async (id: number) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return;
 
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notif => ({ ...notif, read: true }))
-    );
-  };
+      await axios.post(
+        `${API_BASE}/notifications/${id}/read`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'success': return theme.colors.success;
-      case 'warning': return theme.colors.warning;
-      case 'error': return theme.colors.error;
-      case 'info': return theme.colors.info;
-      default: return theme.colors.primary;
+      // Update local state
+      setNotifications(prev =>
+        prev.map(notif =>
+          notif.id === id ? { ...notif, read: true } : notif
+        )
+      );
+    } catch (error: any) {
+      console.error('Error marking notification as read:', error);
+      Alert.alert('Error', 'Failed to mark notification as read');
     }
   };
 
-  const getTypeIcon = (type: string, customIcon?: string) => {
-    if (customIcon) return customIcon;
+  const markAllAsRead = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return;
+
+      await axios.post(
+        `${API_BASE}/notifications/mark-all-read`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      // Update local state
+      setNotifications(prev =>
+        prev.map(notif => ({ ...notif, read: true }))
+      );
+
+      Alert.alert('Success', 'All notifications marked as read');
+    } catch (error: any) {
+      console.error('Error marking all as read:', error);
+      Alert.alert('Error', 'Failed to mark all notifications as read');
+    }
+  };
+
+  const deleteNotification = async (id: number) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return;
+
+      await axios.delete(`${API_BASE}/notifications/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      // Remove from local state
+      setNotifications(prev => prev.filter(notif => notif.id !== id));
+      Alert.alert('Success', 'Notification deleted');
+    } catch (error: any) {
+      console.error('Error deleting notification:', error);
+      Alert.alert('Error', 'Failed to delete notification');
+    }
+  };
+
+  const getNotificationColor = (notification: Notification) => {
+    // Determine color based on title keywords
+    const title = notification.title.toLowerCase();
     
-    switch (type) {
-      case 'success': return 'check-circle';
-      case 'warning': return 'warning';
-      case 'error': return 'error';
-      case 'info': return 'info';
-      default: return 'notifications';
+    if (title.includes('approved') || title.includes('completed') || title.includes('success')) {
+      return theme.colors.success;
+    } else if (title.includes('declined') || title.includes('error') || title.includes('failed')) {
+      return theme.colors.error;
+    } else if (title.includes('assigned') || title.includes('update')) {
+      return theme.colors.warning;
     }
+    
+    return theme.colors.info;
+  };
+
+  const getNotificationIcon = (notification: Notification) => {
+    const title = notification.title.toLowerCase();
+    
+    if (title.includes('approved') || title.includes('success')) return 'check-circle';
+    if (title.includes('declined') || title.includes('error')) return 'cancel';
+    if (title.includes('assigned') || title.includes('role')) return 'assignment';
+    if (title.includes('request') && title.includes('new')) return 'notification-important';
+    if (title.includes('status') || title.includes('update')) return 'update';
+    if (title.includes('join')) return 'group-add';
+    
+    return 'notifications';
   };
 
   const formatDate = (dateString: string) => {
@@ -227,6 +295,9 @@ export default function NotificationsScreen() {
   };
 
   const renderNotification = ({ item, index }: { item: Notification; index: number }) => {
+    const notificationColor = getNotificationColor(item);
+    const notificationIcon = getNotificationIcon(item);
+
     return (
       <Animated.View
         style={[
@@ -250,7 +321,7 @@ export default function NotificationsScreen() {
               backgroundColor: item.read 
                 ? 'rgba(255, 255, 255, 0.95)' 
                 : 'rgba(255, 255, 255, 1)',
-              borderLeftColor: getTypeColor(item.type),
+              borderLeftColor: notificationColor,
             }
           ]} 
           elevation={item.read ? 2 : 4}
@@ -258,13 +329,13 @@ export default function NotificationsScreen() {
           <View style={styles.cardHeader}>
             <View style={styles.notificationIconContainer}>
               <LinearGradient
-                colors={[getTypeColor(item.type), `${getTypeColor(item.type)}80`]}
+                colors={[notificationColor, `${notificationColor}80`]}
                 style={styles.notificationIcon}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
                 <MaterialIcons 
-                  name={getTypeIcon(item.type, item.icon) as any} 
+                  name={notificationIcon as any} 
                   size={20} 
                   color="white" 
                 />
@@ -287,14 +358,23 @@ export default function NotificationsScreen() {
             </View>
 
             {!item.read && (
-              <View style={[styles.unreadDot, { backgroundColor: getTypeColor(item.type) }]} />
+              <View style={[styles.unreadDot, { backgroundColor: notificationColor }]} />
             )}
             
             <IconButton
-              icon="more-horiz"
+              icon="delete"
               size={16}
-              iconColor={theme.colors.slate}
-              onPress={() => markAsRead(item.id)}
+              iconColor={theme.colors.error}
+              onPress={() => {
+                Alert.alert(
+                  'Delete Notification',
+                  'Are you sure you want to delete this notification?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: () => deleteNotification(item.id) },
+                  ]
+                );
+              }}
             />
           </View>
 
@@ -308,15 +388,20 @@ export default function NotificationsScreen() {
             {item.message}
           </Text>
 
-          <View style={styles.cardFooter}>
-            <Chip
-              style={[styles.typeChip, { backgroundColor: `${getTypeColor(item.type)}20` }]}
-              textStyle={{ color: getTypeColor(item.type), fontSize: 11, fontWeight: '600' }}
-              compact
-            >
-              {item.type}
-            </Chip>
-          </View>
+          {!item.read && (
+            <View style={styles.cardActions}>
+              <Button
+                mode="text"
+                onPress={() => markAsRead(item.id)}
+                textColor={notificationColor}
+                icon="check"
+                compact
+                style={{ marginTop: 8 }}
+              >
+                Mark as read
+              </Button>
+            </View>
+          )}
         </Surface>
       </Animated.View>
     );
@@ -356,31 +441,40 @@ export default function NotificationsScreen() {
         end={{ x: 1, y: 1 }}
       >
         <View style={styles.content}>
-          {renderStatsHeader()}
-          
-          {unreadCount > 0 && (
-            <Animated.View
-              style={[
-                styles.actionContainer,
-                {
-                  opacity: fadeAnim,
-                },
-              ]}
-            >
-              <Button
-                mode="outlined"
-                onPress={markAllAsRead}
-                style={styles.markAllButton}
-                textColor={theme.colors.primary}
-                icon="check"
-                compact
-              >
-                Mark All as Read
-              </Button>
-            </Animated.View>
-          )}
-          
-          {notifications.length === 0 ? (
+          {loading && !refreshing ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={[styles.loadingText, { color: theme.colors.slate }]}>
+                Loading notifications...
+              </Text>
+            </View>
+          ) : (
+            <>
+              {renderStatsHeader()}
+              
+              {unreadCount > 0 && (
+                <Animated.View
+                  style={[
+                    styles.actionContainer,
+                    {
+                      opacity: fadeAnim,
+                    },
+                  ]}
+                >
+                  <Button
+                    mode="outlined"
+                    onPress={markAllAsRead}
+                    style={styles.markAllButton}
+                    textColor={theme.colors.primary}
+                    icon="check"
+                    compact
+                  >
+                    Mark All as Read
+                  </Button>
+                </Animated.View>
+              )}
+              
+              {notifications.length === 0 ? (
             renderEmptyState()
           ) : (
             <Animated.View
@@ -408,6 +502,8 @@ export default function NotificationsScreen() {
                 showsVerticalScrollIndicator={false}
               />
             </Animated.View>
+              )}
+            </>
           )}
         </View>
       </LinearGradient>
@@ -534,8 +630,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
   },
+  cardActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 4,
+  },
   typeChip: {
     alignSelf: 'flex-start',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 40,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '500',
   },
   emptyContainer: {
     flex: 1,

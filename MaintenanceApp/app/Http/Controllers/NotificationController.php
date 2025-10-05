@@ -2,119 +2,130 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Notification;
 use DB;
 use Http;
 use Illuminate\Http\Request;
-use Str;
 
 class NotificationController extends Controller
 {
+    /**
+     * Save device token for push notifications
+     */
     public function saveDevice(Request $r)
     {
         $r->validate([
-            'token'       => 'required|string',         // "ExponentPushToken[...]"
+            'token'       => 'required|string',
             'platform'    => 'nullable|string',
             'app_version' => 'nullable|string',
         ]);
 
         DB::table('device_tokens')->updateOrInsert(
             ['token' => $r->token],
-            ['user_id' => $r->user()->id, 'platform' => $r->platform, 'app_version' => $r->app_version,
-             'updated_at' => now(), 'created_at' => now()]
+            [
+                'user_id' => $r->user()->id, 
+                'platform' => $r->platform, 
+                'app_version' => $r->app_version,
+                'updated_at' => now(), 
+                'created_at' => now()
+            ]
         );
 
-        return response()->json(['ok' => true]);
-    }
-
-    /** 2) List notifications saved to DB (Laravel notifications table) */
-    public function index(Request $r)
-    {
-        $items = DB::table('notifications')
-            ->where('notifiable_type', get_class($r->user()))
-            ->where('notifiable_id', $r->user()->id)
-            ->orderByDesc('created_at')
-            ->paginate(20);
-
-        return response()->json($items);
-    }
-
-    /** 3) Mark one as read */
-    public function markRead(Request $r, string $id)
-    {
-        $updated = DB::table('notifications')
-            ->where('id', $id)
-            ->where('notifiable_type', get_class($r->user()))
-            ->where('notifiable_id', $r->user()->id)
-            ->update(['read_at' => now()]);
-
-        abort_if(!$updated, 404, 'Not found');
-        return response()->json(['ok' => true]);
+        return response()->json(['ok' => true, 'message' => 'Device token saved successfully']);
     }
 
     /**
-     * 4) Example: Save + push a notification to the current user (adapt this to your real action)
-     *    - Saves to DB for listing
-     *    - Pushes via Expo (batching up to 100 per request)
+     * List all notifications for authenticated user
      */
-    public function demoAction(Request $r)
+    public function index(Request $r)
     {
-        $targetUser = $r->user(); // replace with your actual recipient(s)
+        $notifications = Notification::where('user_id', $r->user()->id)
+            ->orderByDesc('created_at')
+            ->paginate(50);
 
-        $title = 'Order Updated';
-        $body  = 'Your order #123 changed to SHIPPED';
-        $data  = ['screen' => 'OrderDetails', 'orderId' => 123, 'status' => 'shipped'];
-
-        // (A) Save to DB for listing
-        $id = (string) Str::uuid();
-        DB::table('notifications')->insert([
-            'id'              => $id,
-            'type'            => 'inline',
-            'notifiable_type' => get_class($targetUser),
-            'notifiable_id'   => $targetUser->id,
-            'data'            => json_encode(['title' => $title, 'body' => $body, 'data' => $data]),
-            'read_at'         => null,
-            'created_at'      => now(),
-            'updated_at'      => now(),
+        return response()->json([
+            'status' => 'success',
+            'data' => $notifications->items(),
+            'pagination' => [
+                'current_page' => $notifications->currentPage(),
+                'per_page' => $notifications->perPage(),
+                'total' => $notifications->total(),
+                'last_page' => $notifications->lastPage(),
+            ]
         ]);
+    }
 
-        // (B) Collect Expo tokens
-        $tokens = DB::table('device_tokens')
-            ->where('user_id', $targetUser->id)
-            ->pluck('token')
-            ->filter(fn($t) => str_starts_with($t, 'ExponentPushToken['))
-            ->values()
-            ->all();
+    /**
+     * Mark a notification as read
+     */
+    public function markRead(Request $r, int $id)
+    {
+        $notification = Notification::where('user_id', $r->user()->id)
+            ->where('id', $id)
+            ->first();
 
-        if (empty($tokens)) {
-            return response()->json(['ok' => true, 'info' => 'No Expo tokens for user (saved to DB only).']);
+        if (!$notification) {
+            return response()->json(['message' => 'Notification not found'], 404);
         }
 
-        // (C) Build message objects and send in batches of <=100 (Expo limit)
-        $messages = array_map(fn($t) => [
-            'to'        => $t,
-            'title'     => $title,
-            'body'      => $body,
-            'data'      => $data,      // used for in-app navigation
-            'sound'     => 'default',
-            'priority'  => 'high',
-        ], $tokens);
+        $notification->read = true;
+        $notification->save();
 
-        foreach (array_chunk($messages, 100) as $chunk) { // <= 100 per request
-            $res = Http::withHeaders(['Accept' => 'application/json'])
-                ->post('https://exp.host/--/api/v2/push/send', $chunk)
-                ->json();
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Notification marked as read',
+            'data' => $notification
+        ]);
+    }
 
-            // Optional cleanup: if any ticket returns DeviceNotRegistered, delete that token immediately
-            foreach (($res['data'] ?? []) as $i => $ticket) {
-                if (($ticket['status'] ?? '') === 'error'
-                    && ($ticket['details']['error'] ?? null) === 'DeviceNotRegistered') {
-                    DB::table('device_tokens')->where('token', $chunk[$i]['to'])->delete();
-                }
-            }
+    /**
+     * Mark all notifications as read for authenticated user
+     */
+    public function markAllRead(Request $r)
+    {
+        $updated = Notification::where('user_id', $r->user()->id)
+            ->where('read', false)
+            ->update(['read' => true]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Marked {$updated} notifications as read"
+        ]);
+    }
+
+    /**
+     * Delete a notification
+     */
+    public function destroy(Request $r, int $id)
+    {
+        $notification = Notification::where('user_id', $r->user()->id)
+            ->where('id', $id)
+            ->first();
+
+        if (!$notification) {
+            return response()->json(['message' => 'Notification not found'], 404);
         }
 
-        return response()->json(['ok' => true, 'id' => $id]);
+        $notification->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Notification deleted'
+        ]);
+    }
+
+    /**
+     * Get unread count for authenticated user
+     */
+    public function unreadCount(Request $r)
+    {
+        $count = Notification::where('user_id', $r->user()->id)
+            ->where('read', false)
+            ->count();
+
+        return response()->json([
+            'status' => 'success',
+            'unread_count' => $count
+        ]);
     }
 }
-
-

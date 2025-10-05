@@ -33,6 +33,13 @@ type MaintenanceRequest = {
 const API_BASE = 'http://10.0.2.2:8000/api';
 const SEEN_KEY = '@seen_maint_req_ids';
 
+// Helper to convert relative URLs to absolute
+const absolutizeUrl = (url: string | undefined) => {
+  if (!url) return url;
+  if (url.startsWith('http')) return url;
+  return `http://10.0.2.2:8000${url}`;
+};
+
 // Safe helpers for seen IDs
 async function getSeen(): Promise<Set<number>> {
   try {
@@ -172,7 +179,7 @@ export default function DeptAdminDashboard() {
                 {item.photos.map((p) => (
                   <Image
                     key={p.id}
-                    source={{ uri: p.url }}
+                    source={{ uri: absolutizeUrl(p.url) }}
                     style={styles.photoThumb}
                     resizeMode="cover"
                   />

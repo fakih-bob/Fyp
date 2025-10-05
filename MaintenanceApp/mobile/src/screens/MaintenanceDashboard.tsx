@@ -1,12 +1,15 @@
 // src/screens/MyAssignedRequestsScreen.tsx
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   FlatList,
   StyleSheet,
   RefreshControl,
   Alert,
-  Platform,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  Modal,
 } from 'react-native';
 import {
   Text,
@@ -16,6 +19,7 @@ import {
   Menu,
   Button,
   Divider,
+  IconButton,
 } from 'react-native-paper';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,6 +38,14 @@ type MaintenanceRequest = {
 };
 
 const API_BASE = 'http://10.0.2.2:8000/api';
+
+// Match DeptAdminDashboard: absolutize relative URLs
+const absolutizeUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  return `http://10.0.2.2:8000${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 const STATUS_OPTIONS = ['new', 'declined', 'pending', 'in-progress', 'done'] as const;
 type StatusType = typeof STATUS_OPTIONS[number];
 
@@ -43,6 +55,7 @@ export default function MyAssignedRequestsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [menuVisibleId, setMenuVisibleId] = useState<number | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
 
   const isFocused = useIsFocused();
 
@@ -107,13 +120,10 @@ export default function MyAssignedRequestsScreen() {
           },
         }
       );
-      // success toast/alert optional
     } catch (e: any) {
       console.log('Update status error:', e?.response?.status, e?.response?.data || e?.message);
       setRequests(prev); // rollback
-      const apiMsg =
-        e?.response?.data?.message ||
-        'Failed to update status.';
+      const apiMsg = e?.response?.data?.message || 'Failed to update status.';
       Alert.alert('Error', apiMsg);
     } finally {
       setUpdatingId(null);
@@ -150,6 +160,33 @@ export default function MyAssignedRequestsScreen() {
     );
   };
 
+  // Photos strip (same sizing/spacing as DeptAdmin) + tap-to-preview
+  const PhotoStrip = ({ photos }: { photos?: { id: number; url: string }[] }) => {
+    if (!photos || photos.length === 0) return null;
+    return (
+      <>
+        <View style={{ height: 8 }} />
+        <Text>Photos:</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.photoStrip}
+          contentContainerStyle={styles.photoStripContent}
+        >
+          {photos.map((p) => (
+            <TouchableOpacity key={p.id} onPress={() => setPreviewUri(absolutizeUrl(p.url))}>
+              <Image
+                source={{ uri: absolutizeUrl(p.url) }}
+                style={styles.photoThumb}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </>
+    );
+  };
+
   const renderItem = ({ item }: { item: MaintenanceRequest }) => (
     <Card style={styles.card}>
       <Card.Content>
@@ -171,6 +208,9 @@ export default function MyAssignedRequestsScreen() {
             <Text>{item.description}</Text>
           </>
         ) : null}
+
+        {/* Photos */}
+        <PhotoStrip photos={item.photos} />
       </Card.Content>
     </Card>
   );
@@ -201,6 +241,31 @@ export default function MyAssignedRequestsScreen() {
           }
         />
       )}
+
+      {/* Full-screen preview */}
+      <Modal
+        visible={!!previewUri}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewUri(null)}
+      >
+        <View style={styles.previewBackdrop}>
+          <View style={styles.previewBar}>
+            <IconButton
+              icon="close"
+              onPress={() => setPreviewUri(null)}
+              mode="contained-tonal"
+            />
+          </View>
+          {previewUri ? (
+            <Image
+              source={{ uri: previewUri }}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+          ) : null}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -215,8 +280,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  chip: {
-    alignSelf: 'flex-start',
-  },
+  chip: { alignSelf: 'flex-start' },
   meta: { color: '#666' },
+
+  // same as DeptAdminDashboard
+  photoStrip: { marginTop: 8 },
+  photoStripContent: { gap: 8 },
+  photoThumb: {
+    width: 96,
+    height: 96,
+    borderRadius: 8,
+    backgroundColor: '#E5E7EB',
+  },
+
+  // preview modal
+  previewBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewBar: { position: 'absolute', top: 40, right: 16, zIndex: 2 },
+  previewImage: { width: '92%', height: '80%' },
 });

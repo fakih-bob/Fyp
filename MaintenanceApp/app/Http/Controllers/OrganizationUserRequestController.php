@@ -6,6 +6,7 @@ use App\Models\Department;
 use App\Models\Organization;
 use App\Models\OrganizationUserRequest;
 use App\Models\User;
+use App\Services\NotificationService;
 use DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -68,6 +69,17 @@ class OrganizationUserRequestController extends Controller
         'organization_id' => $orgId,
         'status'          => 'pending',
     ]);
+
+    // Send notification to organization owner
+    $organization = Organization::find($orgId);
+    if ($organization && $organization->owner_id) {
+        $user = User::find($userId);
+        NotificationService::notifyNewJoinRequest(
+            $organization->owner_id, 
+            $user->name ?? 'A user', 
+            $organization->name
+        );
+    }
 
     return response()->json([
         'message' => 'Request sent successfully.',
@@ -136,6 +148,9 @@ class OrganizationUserRequestController extends Controller
         $request->status = 'approved';
         $request->save();
 
+        // Send notification to user
+        NotificationService::notifyJoinRequestApproved($request->user_id, $request->organization->name);
+
         return response()->json(['message' => 'Request approved.']);
     }
 
@@ -150,6 +165,9 @@ class OrganizationUserRequestController extends Controller
 
         $request->status = 'declined';
         $request->save();
+
+        // Send notification to user
+        NotificationService::notifyJoinRequestDeclined($request->user_id, $request->organization->name);
 
         return response()->json(['message' => 'Request declined.']);
     }
@@ -203,6 +221,9 @@ class OrganizationUserRequestController extends Controller
 
     $user->role = 'dept_admin';
     $user->save();
+
+    // Send notification to user
+    NotificationService::notifyAssignedAsDepartmentAdmin($user->id, $department->name);
 
     return response()->json([
         'message' => 'Admin assigned successfully',

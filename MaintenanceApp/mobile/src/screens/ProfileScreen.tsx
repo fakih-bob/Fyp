@@ -51,7 +51,6 @@ type User = {
 };
 
 export default function ProfileScreen() {
-  console.log('ProfileScreen: Component rendered');
   const theme = customTheme;
   const isFocused = useIsFocused();
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
@@ -82,7 +81,6 @@ export default function ProfileScreen() {
   });
 
   useEffect(() => {
-    console.log('ProfileScreen: useEffect called, isFocused:', isFocused);
     if (isFocused) {
       fetchProfile();
       // Delay animation to ensure data is loaded
@@ -125,6 +123,7 @@ export default function ProfileScreen() {
       const token = await AsyncStorage.getItem('token');
       const res = await axios.get('http://10.0.2.2:8000/api/profile', {
         headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
       });
 
       const userData = res.data;
@@ -140,12 +139,9 @@ export default function ProfileScreen() {
         phoneNumber: userData.phone_number || '',
       });
     } catch (error: any) {
-      console.error('Error fetching profile:', error);
-      console.log('ProfileScreen: Error details:', error.response?.data);
       Alert.alert('Error', 'Failed to load profile');
     } finally {
       setLoading(false);
-      console.log('ProfileScreen: fetchProfile completed');
     }
   };
 
@@ -191,6 +187,7 @@ export default function ProfileScreen() {
         updateData,
         {
           headers: { Authorization: `Bearer ${token}` },
+          timeout: 10000,
         }
       );
 
@@ -208,7 +205,6 @@ export default function ProfileScreen() {
       Alert.alert('Success', 'Profile updated successfully!');
       fetchProfile(); // Refresh profile data
     } catch (error: any) {
-      console.error('Update error:', error);
       const message = error.response?.data?.message || 'Failed to update profile';
       Alert.alert('Error', message);
     } finally {
@@ -237,7 +233,6 @@ export default function ProfileScreen() {
                 routes: [{ name: 'Login' }],
               });
             } catch (error) {
-              console.error('Sign out error:', error);
               Alert.alert('Error', 'Failed to sign out');
             } finally {
               setSigningOut(false);
@@ -263,6 +258,7 @@ export default function ProfileScreen() {
               const token = await AsyncStorage.getItem('token');
               await axios.delete('http://10.0.2.2:8000/api/profile', {
                 headers: { Authorization: `Bearer ${token}` },
+                timeout: 10000,
               });
 
               await AsyncStorage.multiRemove(['token', 'user']);
@@ -273,7 +269,6 @@ export default function ProfileScreen() {
                 routes: [{ name: 'Login' }],
               });
             } catch (error) {
-              console.error('Delete error:', error);
               Alert.alert('Error', 'Failed to delete account');
             } finally {
               setDeleting(false);
@@ -381,7 +376,7 @@ export default function ProfileScreen() {
                         labelStyle={{ color: 'white', fontSize: 32, fontWeight: '700' }}
                       />
                       <TouchableOpacity style={styles.avatarEditButton}>
-                        <MaterialIcons name="camera" size={16} color="white" />
+                        <MaterialIcons name="photo-camera" size={16} color="white" />
                       </TouchableOpacity>
                     </View>
                     

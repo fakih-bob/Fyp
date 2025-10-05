@@ -7,6 +7,7 @@ use App\Models\DepartmentUser;
 use App\Models\MaintenanceRequest;
 use App\Models\Photo;
 use App\Models\User;
+use App\Services\NotificationService;
 use Auth;
 use Illuminate\Http\Request;
 
@@ -37,6 +38,16 @@ public function store(Request $request)
                 'url' => '/storage/' . $path,
             ]);
         }
+    }
+
+    // Find the user's organization to notify the operator
+    $user = Auth::user();
+    $orgRequest = \App\Models\OrganizationUserRequest::where('user_id', $user->id)
+        ->where('status', 'approved')
+        ->first();
+    
+    if ($orgRequest) {
+        NotificationService::notifyRequestCreated($maintenanceRequest, $orgRequest->organization_id);
     }
 
     return response()->json([
@@ -109,6 +120,9 @@ public function assignDepartment(Request $request, $id)
         }
         $mr->department_id = $dept->id;
         $mr->save();
+
+        // Send notification to department admin
+        NotificationService::notifyRequestAssignedToDepartment($mr);
 
         return response()->json([
             'message' => 'Assigned successfully.',
@@ -194,6 +208,9 @@ public function assignTo(Request $request, $request_id)
     $maintenanceRequest->assigned_to = $request->user_id;
     $maintenanceRequest->save();
 
+    // Send notification to assigned worker
+    NotificationService::notifyRequestAssignedToWorker($maintenanceRequest);
+
     return response()->json([
         'message' => 'Request assigned successfully.',
         'data' => $maintenanceRequest->load(['assignee'])
@@ -207,7 +224,7 @@ public function myAssignedRequests(Request $request)
 {
     $userId = $request->user()->id;
 
-    $requests = MaintenanceRequest::with(['user', 'department'])
+    $requests = MaintenanceRequest::with(['user', 'department','photos'])
         ->where('assigned_to', $userId)
         ->orderByDesc('created_at')
         ->get();
@@ -225,8 +242,14 @@ public function updateStatus(Request $request, $id)
     ]);
 
     $maintenanceRequest = MaintenanceRequest::findOrFail($id);
+    $oldStatus = $maintenanceRequest->status;
     $maintenanceRequest->status = $request->status;
     $maintenanceRequest->save();
+
+    // Send notification about status change
+    if ($oldStatus !== $request->status) {
+        NotificationService::notifyRequestStatusChanged($maintenanceRequest, $oldStatus, $request->status);
+    }
 
     return response()->json([
         'message' => 'Status updated successfully.',
