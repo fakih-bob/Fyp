@@ -82,7 +82,7 @@ public function store(Request $request)
         ], 401);
     }else{
         $requests = MaintenanceRequest::with(['user', 'department', 'assignee', 'photos'])
-                ->where('department_id', $userID)
+                ->where('user_id', $userID)
                 ->get();
 
     return response()->json([
